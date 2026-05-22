@@ -734,7 +734,7 @@
     if (ass)       parts.push(`Assessment: ${ass}.`);
     if (treatment) parts.push(`Rendered care: ${treatment}.`);
     if (toc)       parts.push(`Transfer of care: ${toc}.`);
-    return parts.join('\n');
+    return parts.join(' ');
   }
 
   async function generateReport() {
@@ -771,7 +771,7 @@
         if (freeNarr) {
           narrative = await tx(freeNarr);
         } else if (useAI) {
-          const sys = `You are a professional military EMS incident report writer. Write a concise narrative in past tense using standard EMS and clinical terminology. Use abbreviations: c/c, PMH, AVPU, GCS, VS, BP, HR, RR, SpO2, RA, NRB, IV, ECG, ALS, BLS, ER, AED. Format vitals as: "VS: BP xxx/xx, HR xx, RR xx, SpO2 xx% on RA". If input is in Japanese, translate and rephrase using proper EMS English. Return only the narrative paragraphs — no headers, no labels, no bullet points.`;
+          const sys = `You are a professional military EMS incident report writer. Write a concise narrative as ONE flowing paragraph in past tense using standard EMS and clinical terminology. Combine all information (dispatch, arrival, chief complaint, history, assessment, treatment, transfer) into a single continuous paragraph — no line breaks, no bullet points, no headers, no labels. Use abbreviations: c/c, PMH, AVPU, GCS, VS, BP, HR, RR, SpO2, RA, NRB, IV, ECG, ALS, BLS, ER, AED. Format vitals inline: "VS: BP xxx/xx, HR xx, RR xx, SpO2 xx% on RA". If input is in Japanese, translate and rephrase using proper EMS English.`;
           const usr = `Write the incident narrative.\nUnits: ${unitList}\nDispatched by: ${dispatcher}\nLocation: ${whereStr || 'reported location'}\nOn arrival / patient found: ${rawArr}\nChief complaint: ${rawCC}\nHistory (Past/Present): ${rawHx}\nAssessment: ${rawAss}\nTreatment rendered: ${rawTx}\nTransfer of care: ${rawToc}`;
           const ai = await callClaude(sys, usr);
           if (ai) {
