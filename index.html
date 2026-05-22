@@ -726,15 +726,21 @@
   }
 
   function buildMedTemplate(unitList, dispatcher, whereStr, arr, cc, hx, ass, treatment, toc) {
-    const parts = [];
-    parts.push(`${unitList} dispatched by ${dispatcher} for a MEDICAL EMERGENCY at ${whereStr || 'the reported location'}.`);
-    if (arr)       parts.push(`Arrived on scene to find ${arr}.`);
-    if (cc)        parts.push(`Chief complaint of ${cc}.`);
-    if (hx)        parts.push(`History: ${hx}.`);
-    if (ass)       parts.push(`Assessment: ${ass}.`);
-    if (treatment) parts.push(`Rendered care: ${treatment}.`);
-    if (toc)       parts.push(`Transfer of care: ${toc}.`);
-    return parts.join(' ');
+    // Block 1: Dispatch
+    const block1 = `${unitList} dispatched by ${dispatcher} for a MEDICAL EMERGENCY at ${whereStr || 'the reported location'}.`;
+
+    // Block 2: Arrived on scene + patient info
+    const scene = [];
+    if (arr)       scene.push(`Arrived on scene to find ${arr}.`);
+    if (cc)        scene.push(`Chief complaint of ${cc}.`);
+    if (hx)        scene.push(`History: ${hx}.`);
+    if (ass)       scene.push(`Assessment: ${ass}.`);
+    if (treatment) scene.push(`Rendered care: ${treatment}.`);
+
+    // Block 3: Transport / Transfer of care
+    const block3 = toc ? `Transfer of care: ${toc}.` : '';
+
+    return [block1, scene.join(' '), block3].filter(Boolean).join('\n');
   }
 
   async function generateReport() {
@@ -771,7 +777,7 @@
         if (freeNarr) {
           narrative = await tx(freeNarr);
         } else if (useAI) {
-          const sys = `You are a professional military EMS incident report writer. Write a concise narrative as ONE flowing paragraph in past tense using standard EMS and clinical terminology. Combine all information (dispatch, arrival, chief complaint, history, assessment, treatment, transfer) into a single continuous paragraph — no line breaks, no bullet points, no headers, no labels. Use abbreviations: c/c, PMH, AVPU, GCS, VS, BP, HR, RR, SpO2, RA, NRB, IV, ECG, ALS, BLS, ER, AED. Format vitals inline: "VS: BP xxx/xx, HR xx, RR xx, SpO2 xx% on RA". If input is in Japanese, translate and rephrase using proper EMS English.`;
+          const sys = `You are a professional military EMS incident report writer. Write the narrative in exactly 3 blocks separated by a single newline (\\n), with no blank lines between them:\n\nBlock 1 (one sentence): Dispatch — units, dispatcher, incident type, location.\nBlock 2 (one paragraph, no line breaks): Arrival scene + patient info — start with "Arrived on scene to find...", then chief complaint, history, assessment, and treatment rendered, all as one flowing paragraph.\nBlock 3 (one sentence): Transfer of care / patient transport.\n\nRules: past tense, standard EMS terminology, abbreviations (c/c, PMH, AVPU, GCS, VS, BP, HR, RR, SpO2, RA, NRB, IV, ECG, ALS, BLS, ER, AED). Format vitals: "VS: BP xxx/xx, HR xx, RR xx, SpO2 xx% on RA". If input is Japanese, translate and rephrase using proper EMS English. No bullet points, no headers, no labels.`;
           const usr = `Write the incident narrative.\nUnits: ${unitList}\nDispatched by: ${dispatcher}\nLocation: ${whereStr || 'reported location'}\nOn arrival / patient found: ${rawArr}\nChief complaint: ${rawCC}\nHistory (Past/Present): ${rawHx}\nAssessment: ${rawAss}\nTreatment rendered: ${rawTx}\nTransfer of care: ${rawToc}`;
           const ai = await callClaude(sys, usr);
           if (ai) {
