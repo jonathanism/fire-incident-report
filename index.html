@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Fire Incident Report Generator</title>
+  <style>
+    :root {
+      --red:    #c0392b;
+      --red-dk: #922b21;
+      --orange: #e67e22;
+      --bg:     #1a1d23;
+      --panel:  #23272f;
+      --card:   #2c313a;
+      --border: #3a3f4b;
+      --text:   #e8eaf0;
+      --muted:  #8b93a5;
+      --accent: #f0a500;
+      --green:  #27ae60;
+      --blue:   #2980b9;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      background: linear-gradient(135deg, #7b1010, var(--red), var(--orange));
+      padding: 20px 28px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      box-shadow: 0 3px 16px rgba(0,0,0,.5);
+    }
+    header .icon { font-size: 2rem; }
+    header h1 { font-size: 1.25rem; font-weight: 800; letter-spacing: .04em; color:#fff; }
+    header p  { font-size: .78rem; color: rgba(255,255,255,.75); margin-top:2px; }
+
+    /* ── Layout ── */
+    .wrapper {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 28px 16px 60px;
+    }
+
+    /* ── Section label ── */
+    .section-label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 22px 0 10px;
+    }
+    .section-label .tag {
+      background: var(--red);
+      color: #fff;
+      font-size: .7rem;
+      font-weight: 900;
+      letter-spacing: .1em;
+      padding: 3px 10px;
+      border-radius: 4px;
+    }
+    .section-label .label-text {
+      font-size: .82rem;
+      color: var(--muted);
+      font-weight: 600;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+    .section-label .line {
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* ── Card ── */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px 22px;
+      margin-bottom: 6px;
+    }
+
+    /* ── Form controls ── */
+    .field { margin-bottom: 14px; }
+    .field:last-child { margin-bottom: 0; }
+    .field label {
+      display: block;
+      font-size: .73rem;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      margin-bottom: 6px;
+    }
+    .field label .ja { font-size: .8rem; color: var(--text); font-weight: 600; text-transform: none; letter-spacing: 0; margin-left: 6px; }
+    input[type="text"],
+    input[type="date"],
+    input[type="time"],
+    select,
+    textarea {
+      width: 100%;
+      background: var(--panel);
+      border: 1.5px solid var(--border);
+      border-radius: 7px;
+      padding: 10px 13px;
+      color: var(--text);
+      font-size: .9rem;
+      font-family: inherit;
+      outline: none;
+      transition: border-color .18s, box-shadow .18s;
+    }
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--red);
+      box-shadow: 0 0 0 3px rgba(192,57,43,.18);
+    }
+    textarea { resize: vertical; min-height: 70px; line-height: 1.6; }
+    select option { background: var(--panel); }
+    ::placeholder { color: #555d70; }
+    .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media(max-width:500px){ .row2 { grid-template-columns: 1fr; } }
+
+    /* ── Step badge for WHY ── */
+    .steps { display: flex; flex-direction: column; gap: 10px; }
+    .step {
+      display: grid;
+      grid-template-columns: 36px 1fr;
+      gap: 12px;
+      align-items: start;
+    }
+    .step-num {
+      width: 36px; height: 36px;
+      background: var(--red);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .75rem; font-weight: 900; color: #fff;
+      flex-shrink: 0;
+      margin-top: 28px;
+    }
+    .step-body { flex: 1; }
+
+    /* ── Tags input helper ── */
+    .tag-hint { font-size: .7rem; color: var(--muted); margin-top: 4px; }
+
+    /* ── Generate btn ── */
+    #generateBtn {
+      width: 100%;
+      padding: 16px;
+      margin-top: 22px;
+      background: linear-gradient(135deg, var(--red-dk), var(--red), #e74c3c);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 800;
+      letter-spacing: .06em;
+      cursor: pointer;
+      box-shadow: 0 4px 18px rgba(192,57,43,.4);
+      transition: transform .15s, box-shadow .15s;
+      text-transform: uppercase;
+    }
+    #generateBtn:hover { transform: translateY(-2px); box-shadow: 0 6px 22px rgba(192,57,43,.55); }
+    #generateBtn:active { transform: translateY(0); }
+
+    /* ── Report output ── */
+    #reportSection { display: none; margin-top: 28px; }
+    #reportSection.visible { display: block; }
+
+    .report-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .report-title {
+      font-size: .8rem;
+      font-weight: 700;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+    .toolbar-btns { display: flex; gap: 8px; }
+    .btn-copy, .btn-clear {
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: .8rem;
+      font-weight: 700;
+      cursor: pointer;
+      border: none;
+      transition: background .15s;
+    }
+    .btn-copy  { background: var(--green); color: #fff; }
+    .btn-copy:hover { background: #1f9549; }
+    .btn-copy.copied { background: #145a32; }
+    .btn-clear { background: var(--border); color: var(--muted); }
+    .btn-clear:hover { background: #4a5060; color: var(--text); }
+
+    /* ── Monospace report box ── */
+    #reportBox {
+      background: #0e1117;
+      border: 1px solid #2a3040;
+      border-radius: 10px;
+      padding: 22px 26px;
+      font-family: 'Courier New', 'Lucida Console', monospace;
+      font-size: .87rem;
+      line-height: 1.9;
+      white-space: pre-wrap;
+      word-break: break-word;
+      color: #c9d8f0;
+      box-shadow: inset 0 2px 12px rgba(0,0,0,.4);
+    }
+
+    /* ── Required star ── */
+    .req { color: var(--red); margin-left: 2px; }
+
+    footer {
+      text-align: center;
+      font-size: .72rem;
+      color: #3a4050;
+      padding: 24px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="icon">🚒</div>
+  <div>
+    <h1>FIRE INCIDENT REPORT GENERATOR</h1>
+    <p>日本語で入力 → 英文インシデントレポートを自動生成</p>
+  </div>
+</header>
+
+<div class="wrapper">
+
+  <!-- ═══ WHO ═══ -->
+  <div class="section-label">
+    <span class="tag">WHO</span>
+    <span class="label-text">対応部隊</span>
+    <span class="line"></span>
+  </div>
+  <div class="card">
+    <div class="field">
+      <label>出動部隊 <span class="ja">Responding Units</span> <span class="req">*</span></label>
+      <input type="text" id="units" placeholder="例: E-11, L-1　／　カンマで複数入力"/>
+      <div class="tag-hint">例: E-11, L-1, BC-2</div>
+    </div>
+    <div class="field">
+      <label>指令センター <span class="ja">Dispatched by</span></label>
+      <input type="text" id="dispatcher" placeholder="例: Butler Fire, Camp Foster Fire Dept"/>
+    </div>
+  </div>
+
+  <!-- ═══ WHAT ═══ -->
+  <div class="section-label">
+    <span class="tag">WHAT</span>
+    <span class="label-text">インシデント種別</span>
+    <span class="line"></span>
+  </div>
+  <div class="card">
+    <div class="row2">
+      <div class="field">
+        <label>種別 <span class="ja">Incident Type</span> <span class="req">*</span></label>
+        <select id="incidentType">
+          <option value="">選択...</option>
+          <optgroup label="火災">
+            <option value="STRUCTURE FIRE">建物火災 / Structure Fire</option>
+            <option value="VEHICLE FIRE">車両火災 / Vehicle Fire</option>
+            <option value="WILDLAND FIRE">山林火災 / Wildland Fire</option>
+            <option value="ELECTRICAL FIRE">電気火災 / Electrical Fire</option>
+          </optgroup>
+          <optgroup label="警報・調査">
+            <option value="FIRE ALARM">火災報知器 / Fire Alarm</option>
+            <option value="SMOKE INVESTIGATION">煙調査 / Smoke Investigation</option>
+            <option value="CARBON MONOXIDE ALARM">CO警報 / CO Alarm</option>
+            <option value="FALSE ALARM">誤報 / False Alarm</option>
+          </optgroup>
+          <optgroup label="救急・その他">
+            <option value="MEDICAL EMERGENCY">医療緊急 / Medical Emergency</option>
+            <option value="HAZMAT INCIDENT">危険物 / Hazmat Incident</option>
+            <option value="GAS LEAK">ガス漏れ / Gas Leak</option>
+            <option value="VEHICLE ACCIDENT">交通事故 / Vehicle Accident</option>
+            <option value="MUTUAL AID">相互援助 / Mutual Aid</option>
+          </optgroup>
+        </select>
+      </div>
+      <div class="field">
+        <label>カスタム種別 <span class="ja">Custom (任意)</span></label>
+        <input type="text" id="incidentTypeCustom" placeholder="上記以外の場合に入力"/>
+      </div>
+    </div>
+    <div class="field">
+      <label>建物・施設 <span class="ja">Building / Facility</span></label>
+      <input type="text" id="building" placeholder="例: BLDG#320, Hangar 7, Camp Foster BX"/>
+    </div>
+  </div>
+
+  <!-- ═══ WHEN ═══ -->
+  <div class="section-label">
+    <span class="tag">WHEN</span>
+    <span class="label-text">日時</span>
+    <span class="line"></span>
+  </div>
+  <div class="card">
+    <div class="row2">
+      <div class="field">
+        <label>時刻 <span class="ja">Time</span></label>
+        <input type="time" id="incTime"/>
+      </div>
+      <div class="field">
+        <label>タイムゾーン <span class="ja">Timezone</span></label>
+        <select id="timezone">
+          <option value="JST">JST（日本標準時）</option>
+          <option value="LOCAL">LOCAL</option>
+          <option value="ZULU">ZULU（UTC）</option>
+          <option value="EST">EST</option>
+          <option value="PST">PST</option>
+        </select>
+      </div>
+    </div>
+    <div class="field">
+      <label>日付 <span class="ja">Date</span></label>
+      <input type="date" id="incDate"/>
+    </div>
+  </div>
+
+  <!-- ═══ WHERE ═══ -->
+  <div class="section-label">
+    <span class="tag">WHERE</span>
+    <span class="label-text">場所</span>
+    <span class="line"></span>
+  </div>
+  <div class="card">
+    <div class="field">
+      <label>基地・施設名 <span class="ja">Installation / Base</span></label>
+      <input type="text" id="base" placeholder="例: CAMP FOSTER, MCAS FUTENMA, CAMP HANSEN"/>
+    </div>
+    <div class="field">
+      <label>詳細場所 <span class="ja">Specific Location</span></label>
+      <input type="text" id="locationDetail" placeholder="例: Room#302, 2nd Floor, North Wing"/>
+    </div>
+  </div>
+
+  <!-- ═══ WHY ═══ -->
+  <div class="section-label">
+    <span class="tag">WHY</span>
+    <span class="label-text">経緯・ナラティブ</span>
+    <span class="line"></span>
+  </div>
+  <div class="card">
+    <div class="steps">
+
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <div class="field">
+            <label>到着時の状況 <span class="ja">Arrival / Scene Conditions</span></label>
+            <select id="arrivalCondition">
+              <option value="">選択...</option>
+              <option value="nothing showing outside on 360">外観異常なし（360度確認）</option>
+              <option value="smoke showing from the structure">建物から煙が見える</option>
+              <option value="flames showing from the structure">建物から炎が見える</option>
+              <option value="heavy smoke conditions throughout the building">建物全体に濃煙</option>
+              <option value="fire fully involved">全焼状態</option>
+              <option value="scene clear upon arrival">到着時異常なし</option>
+              <option value="vehicle fully involved in flames">車両が全焼</option>
+              <option value="patients on scene requiring medical attention">要救護者あり</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>補足 <span class="ja">Additional notes (任意)</span></label>
+            <input type="text" id="arrivalExtra" placeholder="例: bystanders reported smoke on 3rd floor"/>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <div class="field">
+            <label>調査結果 <span class="ja">Investigation Finding</span></label>
+            <select id="finding">
+              <option value="">選択...</option>
+              <option value="smoke detector activation">煙感知器の作動</option>
+              <option value="heat detector activation">熱感知器の作動</option>
+              <option value="sprinkler activation">スプリンクラーの作動</option>
+              <option value="burnt food/cooking odor, no fire">焦げ臭・調理臭（火災なし）</option>
+              <option value="extinguished fire prior to arrival">到着前に鎮火済み</option>
+              <option value="active fire on the __FLOOR__ floor">現場に活火</option>
+              <option value="no evidence of fire or smoke">煙・火災の痕跡なし</option>
+              <option value="gas leak detected">ガス漏れ検知</option>
+              <option value="CO levels elevated">CO濃度上昇</option>
+              <option value="faulty alarm/system malfunction">警報機の誤作動・故障</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>場所・詳細 <span class="ja">Location / Detail</span></label>
+            <input type="text" id="findingDetail" placeholder="例: room#302, kitchen area, 2nd floor hallway"/>
+          </div>
+          <div class="field">
+            <label>原因 <span class="ja">Cause</span></label>
+            <select id="cause">
+              <option value="cause unknown">原因不明</option>
+              <option value="under investigation">調査中</option>
+              <option value="accidental">偶発的（事故）</option>
+              <option value="unattended cooking">調理放置</option>
+              <option value="electrical malfunction">電気系統の故障</option>
+              <option value="suspected arson">放火疑い</option>
+              <option value="equipment malfunction">設備故障</option>
+              <option value="candle/open flame">ろうそく・裸火</option>
+              <option value="no fire present — system fault">火災なし・システム誤作動</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <div class="field">
+            <label>実施した措置 <span class="ja">Actions Taken</span> <span class="req">*</span></label>
+            <div id="actionsContainer">
+              <select class="action-select" style="margin-bottom:8px;">
+                <option value="">選択...</option>
+                <option value="System reset completed">システムリセット完了</option>
+                <option value="Fire suppressed using 1¾-inch hose line">1¾インチホースで鎮火</option>
+                <option value="Ventilation conducted">換気実施</option>
+                <option value="Building evacuated">建物避難完了</option>
+                <option value="Utilities isolated (gas/electric)">ガス・電気遮断</option>
+                <option value="CO levels cleared">CO濃度正常確認</option>
+                <option value="Area ventilated and monitored">エリア換気・監視</option>
+                <option value="Overhaul conducted">オーバーホール実施</option>
+                <option value="Patient treated and transported">傷病者処置・搬送</option>
+                <option value="No action required">措置不要</option>
+                <option value="Turned over to civilian authorities">民間当局へ引き渡し</option>
+              </select>
+            </div>
+            <button type="button" onclick="addAction()" style="background:none;border:1px dashed var(--border);color:var(--muted);padding:6px 14px;border-radius:6px;cursor:pointer;font-size:.8rem;margin-top:4px;">＋ 措置を追加</button>
+          </div>
+          <div class="field">
+            <label>補足措置・備考 <span class="ja">Additional Actions / Notes</span></label>
+            <textarea id="actionsExtra" rows="2" placeholder="例: Contacted facility manager. No injuries reported."></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <div class="field">
+            <label>結末 <span class="ja">Outcome / Resolution</span></label>
+            <select id="outcome">
+              <option value="returned to station">部隊帰還</option>
+              <option value="remained on scene for overhaul">オーバーホールのため現場残留</option>
+              <option value="turned over to civilian fire department">民間消防へ引き渡し</option>
+              <option value="patient transported to naval hospital">傷病者を海軍病院へ搬送</option>
+              <option value="scene secured and handed over to MP">MPへ引き渡し</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- .steps -->
+  </div>
+
+  <!-- ── Optional free-form override ── -->
+  <div class="section-label" style="margin-top:22px;">
+    <span class="tag" style="background:var(--blue)">FREE</span>
+    <span class="label-text">フリーナラティブ（任意上書き）</span>
+    <span class="line"></span>
+  </div>
+  <div class="card">
+    <div class="field">
+      <label>WHYを自由記述で上書き <span class="ja">Override narrative (英語または日本語)</span></label>
+      <textarea id="freeNarrative" rows="4" placeholder="ここに英語または日本語で直接入力するとWHY部分をそのまま使用します（空欄の場合は上のステップから自動生成）"></textarea>
+    </div>
+  </div>
+
+  <button id="generateBtn" onclick="generateReport()">🔥 GENERATE INCIDENT REPORT</button>
+
+  <!-- ── Report Output ── -->
+  <div id="reportSection">
+    <div class="report-header">
+      <span class="report-title">⚡ Generated Report</span>
+      <div class="toolbar-btns">
+        <button class="btn-copy" id="copyBtn" onclick="copyReport()">📋 Copy</button>
+        <button class="btn-clear" onclick="clearReport()">✕ Clear</button>
+      </div>
+    </div>
+    <div id="reportBox"></div>
+  </div>
+
+</div><!-- .wrapper -->
+
+<footer>Fire Incident Report Generator — For training / drill use only</footer>
+
+<script>
+  // Set defaults
+  window.addEventListener('DOMContentLoaded', () => {
+    const now = new Date();
+    document.getElementById('incDate').valueAsDate = now;
+    const hh = String(now.getHours()).padStart(2,'0');
+    const mm = String(now.getMinutes()).padStart(2,'0');
+    document.getElementById('incTime').value = `${hh}:${mm}`;
+  });
+
+  function addAction() {
+    const container = document.getElementById('actionsContainer');
+    const sel = document.createElement('div');
+    sel.style.display = 'flex';
+    sel.style.gap = '8px';
+    sel.style.marginBottom = '8px';
+    sel.innerHTML = `
+      <select class="action-select" style="flex:1">
+        <option value="">選択...</option>
+        <option value="System reset completed">システムリセット完了</option>
+        <option value="Fire suppressed using 1¾-inch hose line">1¾インチホースで鎮火</option>
+        <option value="Ventilation conducted">換気実施</option>
+        <option value="Building evacuated">建物避難完了</option>
+        <option value="Utilities isolated (gas/electric)">ガス・電気遮断</option>
+        <option value="CO levels cleared">CO濃度正常確認</option>
+        <option value="Area ventilated and monitored">エリア換気・監視</option>
+        <option value="Overhaul conducted">オーバーホール実施</option>
+        <option value="Patient treated and transported">傷病者処置・搬送</option>
+        <option value="No action required">措置不要</option>
+        <option value="Turned over to civilian authorities">民間当局へ引き渡し</option>
+      </select>
+      <button type="button" onclick="this.parentElement.remove()" style="background:#922b21;border:none;color:#fff;border-radius:6px;padding:0 10px;cursor:pointer;font-size:1rem;">×</button>
+    `;
+    container.appendChild(sel);
+  }
+
+  function pad2(n){ return String(n).padStart(2,'0'); }
+
+  function formatMilTime(timeStr) {
+    if (!timeStr) return '????';
+    return timeStr.replace(':', '');
+  }
+
+  function formatDate(dateStr) {
+    if (!dateStr) return 'UNKNOWN DATE';
+    const [y, m, d] = dateStr.split('-');
+    return `${pad2(d)}/${pad2(m)}/${y.slice(2)}`;  // DD/MM/YY
+  }
+
+  function v(id){ return (document.getElementById(id)?.value || '').trim(); }
+
+  function generateReport() {
+    const units       = v('units')         || '???';
+    const dispatcher  = v('dispatcher')    || 'Fire Dispatch';
+    const incType     = v('incidentTypeCustom') || v('incidentType') || 'INCIDENT';
+    const building    = v('building');
+    const timeStr     = v('incTime');
+    const tz          = v('timezone')      || 'JST';
+    const dateStr     = v('incDate');
+    const base        = v('base');
+    const locDetail   = v('locationDetail');
+    const arrCond     = v('arrivalCondition');
+    const arrExtra    = v('arrivalExtra');
+    const finding     = v('finding');
+    const findDetail  = v('findingDetail');
+    const cause       = v('cause')         || 'cause unknown';
+    const actionsExtra= v('actionsExtra');
+    const outcome     = v('outcome')       || 'returned to station';
+    const freeNarr    = v('freeNarrative');
+
+    // Collect action selects
+    const actionSelects = document.querySelectorAll('.action-select');
+    const actions = [];
+    actionSelects.forEach(sel => { if(sel.value) actions.push(sel.value); });
+
+    // ── WHERE ──
+    const whereStr = [base, building].filter(Boolean).join(' ');
+
+    // ── WHEN ──
+    const milTime = timeStr ? formatMilTime(timeStr) : '????';
+    const whenStr = `${milTime}(${tz}), ${formatDate(dateStr)}`;
+
+    // ── Build WHO line ──
+    const unitList = units.split(',').map(u => u.trim()).join(' and ');
+
+    // ── Build narrative ──
+    let narrative = '';
+
+    if (freeNarr) {
+      narrative = freeNarr;
+    } else {
+      const parts = [];
+
+      // Dispatch sentence
+      const whereRef = whereStr || 'the reported location';
+      parts.push(`${unitList} dispatched by ${dispatcher} for a ${incType} at ${whereRef}.`);
+
+      // Arrival
+      if (arrCond) {
+        let arrSentence = `Arrived on scene to find ${arrCond}`;
+        if (arrCond.includes('360')) {
+          arrSentence = `Arrived on scene to find nothing showing outside on 360`;
+        }
+        if (arrExtra) arrSentence += `; ${arrExtra}`;
+        arrSentence += '.';
+        parts.push(arrSentence);
+      }
+
+      // Investigation
+      if (finding || findDetail || cause) {
+        let invParts = [];
+        if (finding) {
+          let f = finding;
+          if (findDetail) f += ` in ${findDetail}`;
+          invParts.push(f);
+        } else if (findDetail) {
+          invParts.push(`conditions found in ${findDetail}`);
+        }
+        let invSentence = invParts.length > 0
+          ? `Upon investigation ${invParts.join(', ')} was found`
+          : 'Upon investigation';
+        invSentence += `; ${cause}.`;
+        parts.push(invSentence);
+      }
+
+      // Actions
+      if (actions.length > 0) {
+        // Join actions grammatically
+        if (actions.length === 1) {
+          parts.push(`${actions[0]} and responding unit ${outcome}.`);
+        } else {
+          const last = actions[actions.length - 1];
+          const rest = actions.slice(0, -1);
+          parts.push(`${rest.join(', ')}, and ${last}.`);
+          parts.push(`Responding unit ${outcome}.`);
+        }
+      } else {
+        parts.push(`Responding unit ${outcome}.`);
+      }
+
+      // Extra notes
+      if (actionsExtra) parts.push(actionsExtra);
+
+      narrative = parts.join(' ');
+    }
+
+    // ── Assemble final report ──
+    const report =
+`5W
+WHO:   ${units}
+WHAT:  ${incType}
+WHEN:  ${whenStr}
+WHERE: ${whereStr || 'N/A'}
+WHY:
+${narrative}`;
+
+    const box = document.getElementById('reportBox');
+    box.textContent = report;
+    box.dataset.report = report;
+
+    const sec = document.getElementById('reportSection');
+    sec.classList.add('visible');
+    sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function copyReport() {
+    const text = document.getElementById('reportBox').dataset.report || '';
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = document.getElementById('copyBtn');
+      btn.textContent = '✅ Copied!';
+      btn.classList.add('copied');
+      setTimeout(() => {
+        btn.textContent = '📋 Copy';
+        btn.classList.remove('copied');
+      }, 2000);
+    });
+  }
+
+  function clearReport() {
+    document.getElementById('reportSection').classList.remove('visible');
+  }
+</script>
+</body>
+</html>
