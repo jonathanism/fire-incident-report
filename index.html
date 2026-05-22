@@ -354,7 +354,8 @@
     <span class="line"></span>
   </div>
   <div class="card">
-    <div class="steps">
+    <!-- Fire / other incident steps -->
+    <div id="fireSteps" class="steps">
 
       <div class="step">
         <div class="step-num">1</div>
@@ -466,7 +467,72 @@
         </div>
       </div>
 
-    </div><!-- .steps -->
+    </div><!-- #fireSteps -->
+
+    <!-- Medical emergency steps (shown when MEDICAL EMERGENCY is selected) -->
+    <div id="medicalSteps" class="steps" style="display:none">
+
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <div class="field">
+            <label>到着時の患者状況 <span class="ja">Arrived on scene to find</span> <span class="req">*</span></label>
+            <input type="text" id="medArrival" placeholder="例: 24 y/o male, sitting on the chair, c/c chest pain"/>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <div class="field">
+            <label>主訴 <span class="ja">Chief complaint of</span></label>
+            <input type="text" id="medCC" placeholder="例: chest pain, shortness of breath, altered mental status"/>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <div class="field">
+            <label>既往歴・現病歴 <span class="ja">History (Past / Present)</span></label>
+            <textarea id="medHistory" rows="3" placeholder="例: No significant PMH. Onset of chest pain 30 min prior to arrival. Denies radiation, nausea, or diaphoresis."></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <div class="field">
+            <label>評価 <span class="ja">Assessment</span></label>
+            <textarea id="medAssessment" rows="3" placeholder="例: VS: BP 130/80, HR 88, RR 16, SpO2 98% on RA, GCS 15. Skin warm and dry. Lung sounds clear bilaterally."></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">5</div>
+        <div class="step-body">
+          <div class="field">
+            <label>処置・治療 <span class="ja">Rendered care / Treatment</span></label>
+            <textarea id="medTreatment" rows="3" placeholder="例: O2 via NRB mask at 15 LPM. IV access established in right AC. 12-lead ECG obtained."></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">6</div>
+        <div class="step-body">
+          <div class="field">
+            <label>引き継ぎ <span class="ja">Transfer of care</span></label>
+            <input type="text" id="medTransfer" placeholder="例: Transferred to Naval Hospital Okinawa, turned over to ER staff."/>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- #medicalSteps -->
   </div>
 
   <!-- ── Optional free-form override ── -->
@@ -501,13 +567,20 @@
 <footer>Fire Incident Report Generator — For training / drill use only</footer>
 
 <script>
-  // Set defaults
+  // Set defaults and wire up Medical toggle
   window.addEventListener('DOMContentLoaded', () => {
     const now = new Date();
     document.getElementById('incDate').valueAsDate = now;
     const hh = String(now.getHours()).padStart(2,'0');
     const mm = String(now.getMinutes()).padStart(2,'0');
     document.getElementById('incTime').value = `${hh}:${mm}`;
+
+    function updateNarrativeMode() {
+      const isMedical = document.getElementById('incidentType').value === 'MEDICAL EMERGENCY';
+      document.getElementById('fireSteps').style.display   = isMedical ? 'none' : '';
+      document.getElementById('medicalSteps').style.display = isMedical ? '' : 'none';
+    }
+    document.getElementById('incidentType').addEventListener('change', updateNarrativeMode);
   });
 
   function addAction() {
@@ -541,7 +614,7 @@
   function formatDate(dateStr) {
     if (!dateStr) return 'UNKNOWN DATE';
     const [y, m, d] = dateStr.split('-');
-    return `${pad2(d)}/${pad2(m)}/${y.slice(2)}`;
+    return `${pad2(m)}/${pad2(d)}/${y.slice(2)}`;
   }
   function v(id){ return (document.getElementById(id)?.value || '').trim(); }
 
@@ -577,6 +650,82 @@
       const dateStr         = v('incDate');
       const rawBase         = v('base');
       const rawLocDetail    = v('locationDetail');
+      const rawFreeNarr     = v('freeNarrative');
+
+      const isMedical = (v('incidentType') === 'MEDICAL EMERGENCY') && !v('incidentTypeCustom');
+
+      // ── WHERE / WHEN ──
+      const milTime  = formatMilTime(timeStr);
+      const whenStr  = `${milTime}(${tz}), ${formatDate(dateStr)}`;
+
+      let narrative = '';
+
+      if (isMedical) {
+        // ── Medical path ──
+        const rawMedArrival    = v('medArrival');
+        const rawMedCC         = v('medCC');
+        const rawMedHistory    = v('medHistory');
+        const rawMedAssessment = v('medAssessment');
+        const rawMedTreatment  = v('medTreatment');
+        const rawMedTransfer   = v('medTransfer');
+
+        const [
+          units, dispatcher, incType, building, base,
+          medArrival, medCC, medHistory, medAssessment, medTreatment, medTransfer, freeNarr
+        ] = await Promise.all([
+          translateIfNeeded(rawUnits),
+          translateIfNeeded(rawDispatcher),
+          translateIfNeeded(rawIncType),
+          translateIfNeeded(rawBuilding),
+          translateIfNeeded(rawBase),
+          translateIfNeeded(rawMedArrival),
+          translateIfNeeded(rawMedCC),
+          translateIfNeeded(rawMedHistory),
+          translateIfNeeded(rawMedAssessment),
+          translateIfNeeded(rawMedTreatment),
+          translateIfNeeded(rawMedTransfer),
+          translateIfNeeded(rawFreeNarr),
+        ]);
+
+        const whereStr  = [base, building].filter(Boolean).join(' ');
+        const unitList  = units.split(',').map(u => u.trim()).join(' and ');
+        const whereRef  = whereStr || 'the reported location';
+
+        if (freeNarr) {
+          narrative = freeNarr;
+        } else {
+          const parts = [];
+          parts.push(`${unitList} dispatched by ${dispatcher} for a ${incType} at ${whereRef}.`);
+          if (medArrival)    parts.push(`Arrived on scene to find ${medArrival}.`);
+          if (medCC)         parts.push(`Chief complaint of ${medCC}.`);
+          if (medHistory)    parts.push(`History: ${medHistory}.`);
+          if (medAssessment) parts.push(`Assessment: ${medAssessment}.`);
+          if (medTreatment)  parts.push(`Rendered care: ${medTreatment}.`);
+          if (medTransfer)   parts.push(`Transfer of care: ${medTransfer}.`);
+          narrative = parts.join('\n');
+        }
+
+        // Build report for medical
+        const whereDisplay = whereStr || 'N/A';
+        const report =
+`5W
+WHO:   ${units}
+WHAT:  ${incType.toUpperCase()}
+WHEN:  ${whenStr}
+WHERE: ${whereDisplay}
+WHY:
+${narrative}`;
+
+        const box = document.getElementById('reportBox');
+        box.textContent = report;
+        box.dataset.report = report;
+        const sec = document.getElementById('reportSection');
+        sec.classList.add('visible');
+        sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return;
+      }
+
+      // ── Fire / other incident path ──
       const arrCond         = v('arrivalCondition');
       const rawArrExtra     = v('arrivalExtra');
       const finding         = v('finding');
@@ -584,9 +733,7 @@
       const cause           = v('cause')              || 'cause unknown';
       const rawActionsExtra = v('actionsExtra');
       const outcome         = v('outcome')            || 'returned to station';
-      const rawFreeNarr     = v('freeNarrative');
 
-      // Translate all free-text fields in parallel
       const [
         units, dispatcher, incType, building, base, locDetail,
         arrExtra, findDetail, actionsExtra, freeNarr
@@ -608,24 +755,13 @@
       const actions = [];
       actionSelects.forEach(sel => { if(sel.value) actions.push(sel.value); });
 
-      // ── WHERE ──
       const whereStr = [base, building].filter(Boolean).join(' ');
-
-      // ── WHEN ──
-      const milTime = formatMilTime(timeStr);
-      const whenStr = `${milTime}(${tz}), ${formatDate(dateStr)}`;
-
-      // ── Build WHO line ──
       const unitList = units.split(',').map(u => u.trim()).join(' and ');
-
-      // ── Build narrative ──
-      let narrative = '';
 
       if (freeNarr) {
         narrative = freeNarr;
       } else {
         const parts = [];
-
         const whereRef = whereStr || 'the reported location';
         parts.push(`${unitList} dispatched by ${dispatcher} for a ${incType} at ${whereRef}.`);
 
@@ -668,7 +804,6 @@
         }
 
         if (actionsExtra) parts.push(actionsExtra);
-
         narrative = parts.join(' ');
       }
 
