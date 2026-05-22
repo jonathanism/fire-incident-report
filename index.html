@@ -550,6 +550,23 @@
     </div>
   </div>
 
+  <!-- ── Claude AI Settings ── -->
+  <div class="section-label" style="margin-top:22px;">
+    <span class="tag" style="background:var(--blue)">AI</span>
+    <span class="label-text">Claude API Key（専門用語AI生成）</span>
+    <span class="line"></span>
+  </div>
+  <div class="card">
+    <div class="field">
+      <label>Anthropic API Key <span class="ja">（任意・ブラウザ内保存）</span></label>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input type="password" id="claudeApiKey" placeholder="sk-ant-..." style="flex:1"/>
+        <button id="apiSaveBtn" onclick="saveApiKey()" style="background:var(--blue);border:none;color:#fff;border-radius:7px;padding:10px 16px;cursor:pointer;font-weight:700;white-space:nowrap;font-size:.85rem;">保存</button>
+      </div>
+      <div class="tag-hint">入力するとIFSTA・EMS専門用語でAIがナラティブを自動生成します。空欄の場合はテンプレート＋翻訳。キーはこのブラウザのみに保存されます。</div>
+    </div>
+  </div>
+
   <button id="generateBtn" onclick="generateReport()">🔥 GENERATE INCIDENT REPORT</button>
 
   <!-- ── Report Output ── -->
@@ -569,7 +586,15 @@
 <footer>Fire Incident Report Generator — For training / drill use only</footer>
 
 <script>
-  // Set defaults and wire up Medical toggle
+  /* ── API Key ── */
+  function saveApiKey() {
+    const k = (document.getElementById('claudeApiKey').value || '').trim();
+    localStorage.setItem('claudeApiKey', k);
+    const b = document.getElementById('apiSaveBtn');
+    b.textContent = '✓'; setTimeout(() => b.textContent = '保存', 1500);
+  }
+
+  /* ── Init ── */
   window.addEventListener('DOMContentLoaded', () => {
     const now = new Date();
     document.getElementById('incDate').valueAsDate = now;
@@ -577,12 +602,14 @@
     const mm = String(now.getMinutes()).padStart(2,'0');
     document.getElementById('incTime').value = `${hh}:${mm}`;
 
-    function updateNarrativeMode() {
-      const isMedical = document.getElementById('incidentType').value === 'MEDICAL EMERGENCY';
-      document.getElementById('fireSteps').style.display   = isMedical ? 'none' : '';
-      document.getElementById('medicalSteps').style.display = isMedical ? '' : 'none';
-    }
-    document.getElementById('incidentType').addEventListener('change', updateNarrativeMode);
+    const saved = localStorage.getItem('claudeApiKey');
+    if (saved) document.getElementById('claudeApiKey').value = saved;
+
+    document.getElementById('incidentType').addEventListener('change', () => {
+      const med = document.getElementById('incidentType').value === 'MEDICAL EMERGENCY';
+      document.getElementById('fireSteps').style.display    = med ? 'none' : '';
+      document.getElementById('medicalSteps').style.display = med ? '' : 'none';
+    });
   });
 
   function addAction() {
@@ -620,212 +647,176 @@
   }
   function v(id){ return (document.getElementById(id)?.value || '').trim(); }
 
-  function containsJapanese(text) {
-    return /[　-鿿＀-￯]/.test(text);
+  /* ── Translation (MyMemory fallback) ── */
+  function hasJP(t) { return /[　-鿿＀-￯]/.test(t); }
+
+  async function tx(text) {
+    if (!text || !hasJP(text)) return text;
+    try {
+      const r = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=ja|en`);
+      const d = await r.json();
+      return d.responseData?.translatedText || text;
+    } catch { return text; }
   }
 
-  async function translateIfNeeded(text) {
-    if (!text || !containsJapanese(text)) return text;
+  /* ── Claude API ── */
+  async function callClaude(system, user) {
+    const key = (localStorage.getItem('claudeApiKey') || '').trim();
+    if (!key) return null;
     try {
-      const res = await fetch(
-        `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=ja|en`
-      );
-      const data = await res.json();
-      return data.responseData?.translatedText || text;
-    } catch {
-      return text;
+      const r = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': key,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true',
+        },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 700,
+          system,
+          messages: [{ role: 'user', content: user }]
+        })
+      });
+      if (!r.ok) return null;
+      const d = await r.json();
+      return d.content?.[0]?.text?.trim() || null;
+    } catch { return null; }
+  }
+
+  /* ── Report output helper ── */
+  function showReport(who, what, when, where, narrative) {
+    const report = `5W\nWHO:   ${who}\nWHAT:  ${what.toUpperCase()}\nWHEN:  ${when}\nWHERE: ${where || 'N/A'}\nWHY:\n${narrative}`;
+    const box = document.getElementById('reportBox');
+    box.textContent = report;
+    box.dataset.report = report;
+    const sec = document.getElementById('reportSection');
+    sec.classList.add('visible');
+    sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  /* ── Template builders (used when no API key) ── */
+  function buildFireTemplate(unitList, dispatcher, incType, whereStr, arrCond, arrEx, finding, findDet, cause, actions, actEx, outcome) {
+    const parts = [];
+    const whereRef = whereStr || 'the reported location';
+    parts.push(`${unitList} dispatched by ${dispatcher} for a ${incType} at ${whereRef}.`);
+    if (arrCond) {
+      let s = arrCond.includes('360')
+        ? 'Arrived on scene to find nothing showing outside on 360'
+        : `Arrived on scene to find ${arrCond}`;
+      if (arrEx) s += `; ${arrEx}`;
+      parts.push(s + '.');
     }
+    if (finding || findDet || cause) {
+      let f = finding ? finding + (findDet ? ` in ${findDet}` : '') : (findDet ? `conditions found in ${findDet}` : '');
+      let inv = f ? `Upon investigation ${f} was found` : 'Upon investigation';
+      parts.push(inv + `; ${cause}.`);
+    }
+    if (actions.length === 1) {
+      parts.push(`${actions[0]} and responding unit ${outcome}.`);
+    } else if (actions.length > 1) {
+      parts.push(`${actions.slice(0,-1).join(', ')}, and ${actions[actions.length-1]}.`);
+      parts.push(`Responding unit ${outcome}.`);
+    } else {
+      parts.push(`Responding unit ${outcome}.`);
+    }
+    if (actEx) parts.push(actEx);
+    return parts.join(' ');
+  }
+
+  function buildMedTemplate(unitList, dispatcher, whereStr, arr, cc, hx, ass, treatment, toc) {
+    const parts = [];
+    parts.push(`${unitList} dispatched by ${dispatcher} for a MEDICAL EMERGENCY at ${whereStr || 'the reported location'}.`);
+    if (arr)       parts.push(`Arrived on scene to find ${arr}.`);
+    if (cc)        parts.push(`Chief complaint of ${cc}.`);
+    if (hx)        parts.push(`History: ${hx}.`);
+    if (ass)       parts.push(`Assessment: ${ass}.`);
+    if (treatment) parts.push(`Rendered care: ${treatment}.`);
+    if (toc)       parts.push(`Transfer of care: ${toc}.`);
+    return parts.join('\n');
   }
 
   async function generateReport() {
     const btn = document.getElementById('generateBtn');
-    btn.textContent = '⏳ TRANSLATING...';
+    const useAI = !!(localStorage.getItem('claudeApiKey') || '').trim();
+    btn.textContent = useAI ? '🤖 AI GENERATING...' : '⏳ TRANSLATING...';
     btn.disabled = true;
 
     try {
       const rawUnits        = v('units')              || '???';
-      const rawDispatcher   = v('dispatcher')         || 'Fire Dispatch';
-      const rawIncType      = v('incidentTypeCustom') || v('incidentType') || 'INCIDENT';
-      const rawBuilding     = v('building');
-      const timeStr         = v('incTime');
-      const tz              = v('timezone')           || 'JST';
-      const dateStr         = v('incDate');
-      const rawBase         = v('base');
-      const rawLocDetail    = v('locationDetail');
-      const rawFreeNarr     = v('freeNarrative');
+      const rawDispatcher = v('dispatcher') || 'Fire Dispatch';
+      const rawIncType    = v('incidentTypeCustom') || v('incidentType') || 'INCIDENT';
+      const rawBuilding   = v('building');
+      const rawBase       = v('base');
+      const tz            = v('timezone') || 'JST';
+      const whenStr       = `${formatMilTime(v('incTime'))}(${tz}), ${formatDate(v('incDate'))}`;
+      const isMedical     = (v('incidentType') === 'MEDICAL EMERGENCY') && !v('incidentTypeCustom');
+      const freeNarr      = v('freeNarrative');
 
-      const isMedical = (v('incidentType') === 'MEDICAL EMERGENCY') && !v('incidentTypeCustom');
-
-      // ── WHERE / WHEN ──
-      const milTime  = formatMilTime(timeStr);
-      const whenStr  = `${milTime}(${tz}), ${formatDate(dateStr)}`;
-
-      let narrative = '';
-
-      if (isMedical) {
-        // ── Medical path ──
-        const rawMedArrival    = v('medArrival');
-        const rawMedCC         = v('medCC');
-        const rawMedHistory    = v('medHistory');
-        const rawMedAssessment = v('medAssessment');
-        const rawMedTreatment  = v('medTreatment');
-        const rawMedTransfer   = v('medTransfer');
-
-        const [
-          units, dispatcher, incType, building, base,
-          medArrival, medCC, medHistory, medAssessment, medTreatment, medTransfer, freeNarr
-        ] = await Promise.all([
-          translateIfNeeded(rawUnits),
-          translateIfNeeded(rawDispatcher),
-          translateIfNeeded(rawIncType),
-          translateIfNeeded(rawBuilding),
-          translateIfNeeded(rawBase),
-          translateIfNeeded(rawMedArrival),
-          translateIfNeeded(rawMedCC),
-          translateIfNeeded(rawMedHistory),
-          translateIfNeeded(rawMedAssessment),
-          translateIfNeeded(rawMedTreatment),
-          translateIfNeeded(rawMedTransfer),
-          translateIfNeeded(rawFreeNarr),
-        ]);
-
-        const whereStr  = [base, building].filter(Boolean).join(' ');
-        const unitList  = units.split(',').map(u => u.trim()).join(' and ');
-        const whereRef  = whereStr || 'the reported location';
-
-        if (freeNarr) {
-          narrative = freeNarr;
-        } else {
-          const parts = [];
-          parts.push(`${unitList} dispatched by ${dispatcher} for a ${incType} at ${whereRef}.`);
-          if (medArrival)    parts.push(`Arrived on scene to find ${medArrival}.`);
-          if (medCC)         parts.push(`Chief complaint of ${medCC}.`);
-          if (medHistory)    parts.push(`History: ${medHistory}.`);
-          if (medAssessment) parts.push(`Assessment: ${medAssessment}.`);
-          if (medTreatment)  parts.push(`Rendered care: ${medTreatment}.`);
-          if (medTransfer)   parts.push(`Transfer of care: ${medTransfer}.`);
-          narrative = parts.join('\n');
-        }
-
-        // Build report for medical
-        const whereDisplay = whereStr || 'N/A';
-        const report =
-`5W
-WHO:   ${units}
-WHAT:  ${incType.toUpperCase()}
-WHEN:  ${whenStr}
-WHERE: ${whereDisplay}
-WHY:
-${narrative}`;
-
-        const box = document.getElementById('reportBox');
-        box.textContent = report;
-        box.dataset.report = report;
-        const sec = document.getElementById('reportSection');
-        sec.classList.add('visible');
-        sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        return;
-      }
-
-      // ── Fire / other incident path ──
-      const arrCond         = v('arrivalCondition');
-      const rawArrExtra     = v('arrivalExtra');
-      const finding         = v('finding');
-      const rawFindDetail   = v('findingDetail');
-      const cause           = v('cause')              || 'cause unknown';
-      const rawActionsExtra = v('actionsExtra');
-      const outcome         = v('outcome')            || 'returned to station';
-
-      const [
-        units, dispatcher, incType, building, base, locDetail,
-        arrExtra, findDetail, actionsExtra, freeNarr
-      ] = await Promise.all([
-        translateIfNeeded(rawUnits),
-        translateIfNeeded(rawDispatcher),
-        translateIfNeeded(rawIncType),
-        translateIfNeeded(rawBuilding),
-        translateIfNeeded(rawBase),
-        translateIfNeeded(rawLocDetail),
-        translateIfNeeded(rawArrExtra),
-        translateIfNeeded(rawFindDetail),
-        translateIfNeeded(rawActionsExtra),
-        translateIfNeeded(rawFreeNarr),
+      // Translate header fields
+      const [units, dispatcher, incType, building, base] = await Promise.all([
+        tx(rawUnits), tx(rawDispatcher), tx(rawIncType), tx(rawBuilding), tx(rawBase)
       ]);
-
-      // Collect action selects (already English from dropdowns)
-      const actionSelects = document.querySelectorAll('.action-select');
-      const actions = [];
-      actionSelects.forEach(sel => { if(sel.value) actions.push(sel.value); });
-
       const whereStr = [base, building].filter(Boolean).join(' ');
       const unitList = units.split(',').map(u => u.trim()).join(' and ');
 
-      if (freeNarr) {
-        narrative = freeNarr;
-      } else {
-        const parts = [];
-        const whereRef = whereStr || 'the reported location';
-        parts.push(`${unitList} dispatched by ${dispatcher} for a ${incType} at ${whereRef}.`);
+      let narrative = '';
 
-        if (arrCond) {
-          let arrSentence = arrCond.includes('360')
-            ? `Arrived on scene to find nothing showing outside on 360`
-            : `Arrived on scene to find ${arrCond}`;
-          if (arrExtra) arrSentence += `; ${arrExtra}`;
-          arrSentence += '.';
-          parts.push(arrSentence);
-        }
+      /* ════ MEDICAL ════ */
+      if (isMedical) {
+        const rawArr = v('medArrival'), rawCC = v('medCC'), rawHx = v('medHistory');
+        const rawAss = v('medAssessment'), rawTx = v('medTreatment'), rawToc = v('medTransfer');
 
-        if (finding || findDetail || cause) {
-          let invParts = [];
-          if (finding) {
-            let f = finding;
-            if (findDetail) f += ` in ${findDetail}`;
-            invParts.push(f);
-          } else if (findDetail) {
-            invParts.push(`conditions found in ${findDetail}`);
-          }
-          let invSentence = invParts.length > 0
-            ? `Upon investigation ${invParts.join(', ')} was found`
-            : 'Upon investigation';
-          invSentence += `; ${cause}.`;
-          parts.push(invSentence);
-        }
-
-        if (actions.length > 0) {
-          if (actions.length === 1) {
-            parts.push(`${actions[0]} and responding unit ${outcome}.`);
+        if (freeNarr) {
+          narrative = await tx(freeNarr);
+        } else if (useAI) {
+          const sys = `You are a professional military EMS incident report writer. Write a concise narrative in past tense using standard EMS and clinical terminology. Use abbreviations: c/c, PMH, AVPU, GCS, VS, BP, HR, RR, SpO2, RA, NRB, IV, ECG, ALS, BLS, ER, AED. Format vitals as: "VS: BP xxx/xx, HR xx, RR xx, SpO2 xx% on RA". If input is in Japanese, translate and rephrase using proper EMS English. Return only the narrative paragraphs — no headers, no labels, no bullet points.`;
+          const usr = `Write the incident narrative.\nUnits: ${unitList}\nDispatched by: ${dispatcher}\nLocation: ${whereStr || 'reported location'}\nOn arrival / patient found: ${rawArr}\nChief complaint: ${rawCC}\nHistory (Past/Present): ${rawHx}\nAssessment: ${rawAss}\nTreatment rendered: ${rawTx}\nTransfer of care: ${rawToc}`;
+          const ai = await callClaude(sys, usr);
+          if (ai) {
+            narrative = ai;
           } else {
-            const last = actions[actions.length - 1];
-            const rest = actions.slice(0, -1);
-            parts.push(`${rest.join(', ')}, and ${last}.`);
-            parts.push(`Responding unit ${outcome}.`);
+            const [arr, cc, hx, ass, treatment, toc] = await Promise.all([tx(rawArr), tx(rawCC), tx(rawHx), tx(rawAss), tx(rawTx), tx(rawToc)]);
+            narrative = buildMedTemplate(unitList, dispatcher, whereStr, arr, cc, hx, ass, treatment, toc);
           }
         } else {
-          parts.push(`Responding unit ${outcome}.`);
+          const [arr, cc, hx, ass, treatment, toc] = await Promise.all([tx(rawArr), tx(rawCC), tx(rawHx), tx(rawAss), tx(rawTx), tx(rawToc)]);
+          narrative = buildMedTemplate(unitList, dispatcher, whereStr, arr, cc, hx, ass, treatment, toc);
         }
 
-        if (actionsExtra) parts.push(actionsExtra);
-        narrative = parts.join(' ');
+        showReport(units, incType, whenStr, whereStr, narrative);
+        return;
       }
 
-      // ── Assemble final report ──
-      const report =
-`5W
-WHO:   ${units}
-WHAT:  ${incType.toUpperCase()}
-WHEN:  ${whenStr}
-WHERE: ${whereStr || 'N/A'}
-WHY:
-${narrative}`;
+      /* ════ FIRE / OTHER ════ */
+      const arrCond  = v('arrivalCondition');
+      const rawArrEx = v('arrivalExtra');
+      const finding  = v('finding');
+      const rawFindD = v('findingDetail');
+      const cause    = v('cause') || 'cause unknown';
+      const rawActEx = v('actionsExtra');
+      const outcome  = v('outcome') || 'returned to station';
+      const actions  = [...document.querySelectorAll('.action-select')].map(s => s.value).filter(Boolean);
 
-      const box = document.getElementById('reportBox');
-      box.textContent = report;
-      box.dataset.report = report;
+      if (freeNarr) {
+        narrative = await tx(freeNarr);
+      } else if (useAI) {
+        const sys = `You are a professional military fire department incident report writer. Write a concise narrative in past tense using IFSTA/NFPA standard fire service terminology. Use terms like: on-scene, 360-degree survey, nothing showing, working fire, knockdown, overhaul, primary/secondary search, all-clear, utilities isolated, scene secured, companies, apparatus, in-service. If input is in Japanese, translate and rephrase using proper fire service English. Return only the narrative — no headers, no labels, no bullet points.`;
+        const [arrEx, findD, actEx] = await Promise.all([tx(rawArrEx), tx(rawFindD), tx(rawActEx)]);
+        const usr = `Write the incident narrative.\nUnits: ${unitList}\nDispatched by: ${dispatcher}\nIncident type: ${incType}\nLocation: ${whereStr || 'reported location'}\nArrival conditions: ${arrCond || 'not specified'}${arrEx ? '; ' + arrEx : ''}\nInvestigation finding: ${finding || 'not specified'}${findD ? ' in ' + findD : ''}\nCause: ${cause}\nActions taken: ${actions.length ? actions.join(', ') : 'none specified'}\nAdditional notes: ${actEx || 'none'}\nOutcome: ${outcome}`;
+        const ai = await callClaude(sys, usr);
+        if (ai) {
+          narrative = ai;
+        } else {
+          narrative = buildFireTemplate(unitList, dispatcher, incType, whereStr, arrCond, arrEx, finding, findD, cause, actions, actEx, outcome);
+        }
+      } else {
+        const [arrEx, findD, actEx] = await Promise.all([tx(rawArrEx), tx(rawFindD), tx(rawActEx)]);
+        narrative = buildFireTemplate(unitList, dispatcher, incType, whereStr, arrCond, arrEx, finding, findD, cause, actions, actEx, outcome);
+      }
 
-      const sec = document.getElementById('reportSection');
-      sec.classList.add('visible');
-      sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      showReport(units, incType, whenStr, whereStr, narrative);
 
     } finally {
       btn.textContent = '🔥 GENERATE INCIDENT REPORT';
