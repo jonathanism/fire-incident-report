@@ -537,132 +537,163 @@
   }
 
   function pad2(n){ return String(n).padStart(2,'0'); }
-
-  function formatMilTime(timeStr) {
-    if (!timeStr) return '????';
-    return timeStr.replace(':', '');
-  }
-
+  function formatMilTime(timeStr) { return timeStr ? timeStr.replace(':', '') : '????'; }
   function formatDate(dateStr) {
     if (!dateStr) return 'UNKNOWN DATE';
     const [y, m, d] = dateStr.split('-');
-    return `${pad2(d)}/${pad2(m)}/${y.slice(2)}`;  // DD/MM/YY
+    return `${pad2(d)}/${pad2(m)}/${y.slice(2)}`;
   }
-
   function v(id){ return (document.getElementById(id)?.value || '').trim(); }
 
-  function generateReport() {
-    const units       = v('units')         || '???';
-    const dispatcher  = v('dispatcher')    || 'Fire Dispatch';
-    const incType     = v('incidentTypeCustom') || v('incidentType') || 'INCIDENT';
-    const building    = v('building');
-    const timeStr     = v('incTime');
-    const tz          = v('timezone')      || 'JST';
-    const dateStr     = v('incDate');
-    const base        = v('base');
-    const locDetail   = v('locationDetail');
-    const arrCond     = v('arrivalCondition');
-    const arrExtra    = v('arrivalExtra');
-    const finding     = v('finding');
-    const findDetail  = v('findingDetail');
-    const cause       = v('cause')         || 'cause unknown';
-    const actionsExtra= v('actionsExtra');
-    const outcome     = v('outcome')       || 'returned to station';
-    const freeNarr    = v('freeNarrative');
+  function containsJapanese(text) {
+    return /[　-鿿＀-￯]/.test(text);
+  }
 
-    // Collect action selects
-    const actionSelects = document.querySelectorAll('.action-select');
-    const actions = [];
-    actionSelects.forEach(sel => { if(sel.value) actions.push(sel.value); });
+  async function translateIfNeeded(text) {
+    if (!text || !containsJapanese(text)) return text;
+    try {
+      const res = await fetch(
+        `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=ja|en`
+      );
+      const data = await res.json();
+      return data.responseData?.translatedText || text;
+    } catch {
+      return text;
+    }
+  }
 
-    // ── WHERE ──
-    const whereStr = [base, building].filter(Boolean).join(' ');
+  async function generateReport() {
+    const btn = document.getElementById('generateBtn');
+    btn.textContent = '⏳ TRANSLATING...';
+    btn.disabled = true;
 
-    // ── WHEN ──
-    const milTime = timeStr ? formatMilTime(timeStr) : '????';
-    const whenStr = `${milTime}(${tz}), ${formatDate(dateStr)}`;
+    try {
+      const rawUnits        = v('units')              || '???';
+      const rawDispatcher   = v('dispatcher')         || 'Fire Dispatch';
+      const rawIncType      = v('incidentTypeCustom') || v('incidentType') || 'INCIDENT';
+      const rawBuilding     = v('building');
+      const timeStr         = v('incTime');
+      const tz              = v('timezone')           || 'JST';
+      const dateStr         = v('incDate');
+      const rawBase         = v('base');
+      const rawLocDetail    = v('locationDetail');
+      const arrCond         = v('arrivalCondition');
+      const rawArrExtra     = v('arrivalExtra');
+      const finding         = v('finding');
+      const rawFindDetail   = v('findingDetail');
+      const cause           = v('cause')              || 'cause unknown';
+      const rawActionsExtra = v('actionsExtra');
+      const outcome         = v('outcome')            || 'returned to station';
+      const rawFreeNarr     = v('freeNarrative');
 
-    // ── Build WHO line ──
-    const unitList = units.split(',').map(u => u.trim()).join(' and ');
+      // Translate all free-text fields in parallel
+      const [
+        units, dispatcher, incType, building, base, locDetail,
+        arrExtra, findDetail, actionsExtra, freeNarr
+      ] = await Promise.all([
+        translateIfNeeded(rawUnits),
+        translateIfNeeded(rawDispatcher),
+        translateIfNeeded(rawIncType),
+        translateIfNeeded(rawBuilding),
+        translateIfNeeded(rawBase),
+        translateIfNeeded(rawLocDetail),
+        translateIfNeeded(rawArrExtra),
+        translateIfNeeded(rawFindDetail),
+        translateIfNeeded(rawActionsExtra),
+        translateIfNeeded(rawFreeNarr),
+      ]);
 
-    // ── Build narrative ──
-    let narrative = '';
+      // Collect action selects (already English from dropdowns)
+      const actionSelects = document.querySelectorAll('.action-select');
+      const actions = [];
+      actionSelects.forEach(sel => { if(sel.value) actions.push(sel.value); });
 
-    if (freeNarr) {
-      narrative = freeNarr;
-    } else {
-      const parts = [];
+      // ── WHERE ──
+      const whereStr = [base, building].filter(Boolean).join(' ');
 
-      // Dispatch sentence
-      const whereRef = whereStr || 'the reported location';
-      parts.push(`${unitList} dispatched by ${dispatcher} for a ${incType} at ${whereRef}.`);
+      // ── WHEN ──
+      const milTime = formatMilTime(timeStr);
+      const whenStr = `${milTime}(${tz}), ${formatDate(dateStr)}`;
 
-      // Arrival
-      if (arrCond) {
-        let arrSentence = `Arrived on scene to find ${arrCond}`;
-        if (arrCond.includes('360')) {
-          arrSentence = `Arrived on scene to find nothing showing outside on 360`;
+      // ── Build WHO line ──
+      const unitList = units.split(',').map(u => u.trim()).join(' and ');
+
+      // ── Build narrative ──
+      let narrative = '';
+
+      if (freeNarr) {
+        narrative = freeNarr;
+      } else {
+        const parts = [];
+
+        const whereRef = whereStr || 'the reported location';
+        parts.push(`${unitList} dispatched by ${dispatcher} for a ${incType} at ${whereRef}.`);
+
+        if (arrCond) {
+          let arrSentence = arrCond.includes('360')
+            ? `Arrived on scene to find nothing showing outside on 360`
+            : `Arrived on scene to find ${arrCond}`;
+          if (arrExtra) arrSentence += `; ${arrExtra}`;
+          arrSentence += '.';
+          parts.push(arrSentence);
         }
-        if (arrExtra) arrSentence += `; ${arrExtra}`;
-        arrSentence += '.';
-        parts.push(arrSentence);
-      }
 
-      // Investigation
-      if (finding || findDetail || cause) {
-        let invParts = [];
-        if (finding) {
-          let f = finding;
-          if (findDetail) f += ` in ${findDetail}`;
-          invParts.push(f);
-        } else if (findDetail) {
-          invParts.push(`conditions found in ${findDetail}`);
+        if (finding || findDetail || cause) {
+          let invParts = [];
+          if (finding) {
+            let f = finding;
+            if (findDetail) f += ` in ${findDetail}`;
+            invParts.push(f);
+          } else if (findDetail) {
+            invParts.push(`conditions found in ${findDetail}`);
+          }
+          let invSentence = invParts.length > 0
+            ? `Upon investigation ${invParts.join(', ')} was found`
+            : 'Upon investigation';
+          invSentence += `; ${cause}.`;
+          parts.push(invSentence);
         }
-        let invSentence = invParts.length > 0
-          ? `Upon investigation ${invParts.join(', ')} was found`
-          : 'Upon investigation';
-        invSentence += `; ${cause}.`;
-        parts.push(invSentence);
-      }
 
-      // Actions
-      if (actions.length > 0) {
-        // Join actions grammatically
-        if (actions.length === 1) {
-          parts.push(`${actions[0]} and responding unit ${outcome}.`);
+        if (actions.length > 0) {
+          if (actions.length === 1) {
+            parts.push(`${actions[0]} and responding unit ${outcome}.`);
+          } else {
+            const last = actions[actions.length - 1];
+            const rest = actions.slice(0, -1);
+            parts.push(`${rest.join(', ')}, and ${last}.`);
+            parts.push(`Responding unit ${outcome}.`);
+          }
         } else {
-          const last = actions[actions.length - 1];
-          const rest = actions.slice(0, -1);
-          parts.push(`${rest.join(', ')}, and ${last}.`);
           parts.push(`Responding unit ${outcome}.`);
         }
-      } else {
-        parts.push(`Responding unit ${outcome}.`);
+
+        if (actionsExtra) parts.push(actionsExtra);
+
+        narrative = parts.join(' ');
       }
 
-      // Extra notes
-      if (actionsExtra) parts.push(actionsExtra);
-
-      narrative = parts.join(' ');
-    }
-
-    // ── Assemble final report ──
-    const report =
+      // ── Assemble final report ──
+      const report =
 `5W
 WHO:   ${units}
-WHAT:  ${incType}
+WHAT:  ${incType.toUpperCase()}
 WHEN:  ${whenStr}
 WHERE: ${whereStr || 'N/A'}
 WHY:
 ${narrative}`;
 
-    const box = document.getElementById('reportBox');
-    box.textContent = report;
-    box.dataset.report = report;
+      const box = document.getElementById('reportBox');
+      box.textContent = report;
+      box.dataset.report = report;
 
-    const sec = document.getElementById('reportSection');
-    sec.classList.add('visible');
-    sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const sec = document.getElementById('reportSection');
+      sec.classList.add('visible');
+      sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    } finally {
+      btn.textContent = '🔥 GENERATE INCIDENT REPORT';
+      btn.disabled = false;
+    }
   }
 
   function copyReport() {
