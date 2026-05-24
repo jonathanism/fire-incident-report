@@ -226,6 +226,87 @@
       padding: 24px;
     }
 
+    /* ── History ── */
+    .history-empty {
+      color: var(--muted); font-size: .82rem;
+      text-align: center; padding: 20px 0;
+    }
+    .history-item {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 6px;
+      overflow: hidden;
+    }
+    .history-meta {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 14px;
+      cursor: pointer;
+      transition: background .15s;
+      user-select: none;
+    }
+    .history-meta:hover { background: rgba(255,255,255,.04); }
+    .history-badge {
+      background: var(--red-dk);
+      color: #fff;
+      font-size: .62rem;
+      font-weight: 800;
+      padding: 3px 8px;
+      border-radius: 4px;
+      letter-spacing: .06em;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .history-info { flex: 1; min-width: 0; }
+    .history-when  { display: block; font-size: .72rem; color: var(--muted); }
+    .history-where {
+      display: block; font-size: .82rem; color: var(--text);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .history-del {
+      background: none; border: none; color: var(--muted);
+      cursor: pointer; font-size: 1rem; padding: 4px 6px;
+      border-radius: 4px; transition: background .15s, color .15s;
+      flex-shrink: 0;
+    }
+    .history-del:hover { background: rgba(192,57,43,.2); color: var(--red); }
+    .history-chevron { color: var(--muted); font-size: .8rem; flex-shrink: 0; }
+    .history-body {
+      border-top: 1px solid var(--border);
+      padding: 14px;
+      display: none;
+    }
+    .history-body.open { display: block; }
+    .history-text {
+      background: #0e1117;
+      border-radius: 8px;
+      padding: 14px;
+      font-family: 'Courier New', monospace;
+      font-size: .82rem;
+      line-height: 1.8;
+      white-space: pre-wrap;
+      word-break: break-word;
+      color: #c9d8f0;
+      margin-bottom: 10px;
+    }
+    .btn-copy-hist {
+      background: var(--green); color: #fff;
+      border: none; border-radius: 6px;
+      padding: 7px 14px; font-size: .8rem;
+      font-weight: 700; cursor: pointer;
+      transition: background .15s;
+    }
+    .btn-copy-hist:hover { background: #1f9549; }
+    .history-clear-btn {
+      background: none; border: 1px solid var(--border);
+      color: var(--muted); border-radius: 5px;
+      padding: 3px 10px; font-size: .72rem;
+      cursor: pointer; transition: all .15s;
+    }
+    .history-clear-btn:hover { border-color: var(--red); color: var(--red); }
+
     /* ════ Mobile Optimization ════ */
     @media (max-width: 640px) {
 
@@ -681,6 +762,15 @@
     <div id="reportBox"></div>
   </div>
 
+  <!-- ── Report History ── -->
+  <div class="section-label" style="margin-top:28px;">
+    <span class="tag" style="background:#3a4050;">HISTORY</span>
+    <span class="label-text">過去のレポート</span>
+    <span class="line"></span>
+    <button class="history-clear-btn" onclick="clearAllHistory()">全削除</button>
+  </div>
+  <div id="historyList"></div>
+
 </div><!-- .wrapper -->
 
 <footer>Fire Incident Report Generator — For training / drill use only</footer>
@@ -716,6 +806,8 @@
 
     const saved = localStorage.getItem('claudeApiKey');
     if (saved) document.getElementById('claudeApiKey').value = saved;
+
+    renderHistory();
 
     document.getElementById('incidentType').addEventListener('change', () => {
       const med = document.getElementById('incidentType').value === 'MEDICAL EMERGENCY';
@@ -807,6 +899,70 @@
     const sec = document.getElementById('reportSection');
     sec.classList.add('visible');
     sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    saveToHistory(report, what, when, where);
+  }
+
+  /* ── History ── */
+  function saveToHistory(report, incType, when, where) {
+    const history = JSON.parse(localStorage.getItem('reportHistory') || '[]');
+    history.unshift({ id: Date.now().toString(), type: incType.toUpperCase(), when, where: where || '', text: report });
+    if (history.length > 50) history.pop();
+    localStorage.setItem('reportHistory', JSON.stringify(history));
+    renderHistory();
+  }
+
+  function renderHistory() {
+    const history = JSON.parse(localStorage.getItem('reportHistory') || '[]');
+    const list = document.getElementById('historyList');
+    if (!history.length) {
+      list.innerHTML = '<p class="history-empty">保存されたレポートはありません</p>';
+      return;
+    }
+    list.innerHTML = history.map(item => `
+      <div class="history-item">
+        <div class="history-meta" onclick="toggleHistoryBody('${item.id}')">
+          <span class="history-badge">${item.type}</span>
+          <div class="history-info">
+            <span class="history-when">${item.when}</span>
+            <span class="history-where">${item.where || 'N/A'}</span>
+          </div>
+          <span class="history-chevron">▼</span>
+          <button class="history-del" onclick="event.stopPropagation();deleteHistoryItem('${item.id}')">🗑</button>
+        </div>
+        <div class="history-body" id="hb-${item.id}">
+          <pre class="history-text">${item.text}</pre>
+          <button class="btn-copy-hist" onclick="copyHistoryItem('${item.id}')">📋 Copy</button>
+        </div>
+      </div>`).join('');
+  }
+
+  function toggleHistoryBody(id) {
+    const body = document.getElementById('hb-' + id);
+    body.classList.toggle('open');
+  }
+
+  function deleteHistoryItem(id) {
+    let history = JSON.parse(localStorage.getItem('reportHistory') || '[]');
+    history = history.filter(h => h.id !== id);
+    localStorage.setItem('reportHistory', JSON.stringify(history));
+    renderHistory();
+  }
+
+  function clearAllHistory() {
+    if (!confirm('全てのレポート履歴を削除しますか？')) return;
+    localStorage.removeItem('reportHistory');
+    renderHistory();
+  }
+
+  function copyHistoryItem(id) {
+    const history = JSON.parse(localStorage.getItem('reportHistory') || '[]');
+    const item = history.find(h => h.id === id);
+    if (!item) return;
+    navigator.clipboard.writeText(item.text).then(() => {
+      const btn = event.target;
+      btn.textContent = '✅ Copied!';
+      setTimeout(() => btn.textContent = '📋 Copy', 2000);
+    });
   }
 
   /* ── Template builders (used when no API key) ── */
