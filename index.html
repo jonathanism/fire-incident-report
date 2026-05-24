@@ -705,6 +705,11 @@
     'Camp Schwab','MCAS Futenma','Camp Kinser','Plaza Housing','Camp McTureous'
   ];
   const AC_LOCATION = ['Bldg#','Room#','Building #','Floor #','Gate #'];
+  const AC_BASE = [
+    'Camp Foster','Camp Courtney','Camp Hansen','Camp Schwab',
+    'MCAS Futenma','Camp Kinser','Plaza Housing','Camp McTureous',
+    'Camp Lester','Camp Shields','Torii Station','White Beach Naval Facility'
+  ];
 
   function initAC(inputId, data, isMulti) {
     const inp = document.getElementById(inputId);
@@ -930,6 +935,7 @@
     // Autocomplete
     initAC('units',          AC_UNITS,    true);
     initAC('dispatcher',     AC_DISPATCH, false);
+    initAC('base',           AC_BASE,     false);
     initAC('locationDetail', AC_LOCATION, false);
   });
 
