@@ -434,6 +434,7 @@
               <select class="action-select" style="margin-bottom:8px;">
                 <option value="">選択...</option>
                 <option value="System reset completed">システムリセット完了</option>
+                <option value="Placed in silence position">リセット不可・サイレンスポジション</option>
                 <option value="Fire suppressed using 1¾-inch hose line">1¾インチホースで鎮火</option>
                 <option value="Ventilation conducted">換気実施</option>
                 <option value="Building evacuated">建物避難完了</option>
@@ -460,13 +461,21 @@
         <div class="step-body">
           <div class="field">
             <label>結末 <span class="ja">Outcome / Resolution</span></label>
-            <select id="outcome">
+            <select id="outcome" onchange="toggleServiceTicket()">
               <option value="returned to station">部隊帰還</option>
               <option value="remained on scene for overhaul">オーバーホールのため現場残留</option>
               <option value="turned over to civilian fire department">民間消防へ引き渡し</option>
               <option value="patient transported to naval hospital">傷病者を海軍病院へ搬送</option>
               <option value="scene secured and handed over to MP">MPへ引き渡し</option>
+              <option value="service_ticket">サービスチケット依頼 / Requested service ticket</option>
             </select>
+            <div id="serviceTicketField" style="display:none; margin-top:8px;">
+              <label style="font-size:.73rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">依頼先 <span style="font-size:.8rem;color:var(--text);font-weight:600;text-transform:none;letter-spacing:0;margin-left:6px;">Service ticket to</span></label>
+              <select id="serviceTicketDest" style="margin-top:6px;">
+                <option value="G-F">G-F</option>
+                <option value="Kadena">Kadena</option>
+              </select>
+            </div>
           </div>
         </div>
       </div>
@@ -603,6 +612,12 @@
 <footer>Fire Incident Report Generator — For training / drill use only</footer>
 
 <script>
+  /* ── Service ticket toggle ── */
+  function toggleServiceTicket() {
+    const isTicket = document.getElementById('outcome').value === 'service_ticket';
+    document.getElementById('serviceTicketField').style.display = isTicket ? '' : 'none';
+  }
+
   /* ── Medical transport toggle ── */
   function toggleMedTransport() {
     const isROC = document.getElementById('medOutcome').value === 'roc';
@@ -645,6 +660,7 @@
       <select class="action-select" style="flex:1">
         <option value="">選択...</option>
         <option value="System reset completed">システムリセット完了</option>
+        <option value="Placed in silence position">リセット不可・サイレンスポジション</option>
         <option value="Fire suppressed using 1¾-inch hose line">1¾インチホースで鎮火</option>
         <option value="Ventilation conducted">換気実施</option>
         <option value="Building evacuated">建物避難完了</option>
@@ -720,7 +736,7 @@
   }
 
   /* ── Template builders (used when no API key) ── */
-  function buildFireTemplate(unitList, dispatcher, incType, whereStr, arrCond, arrEx, finding, findDet, cause, actions, actEx, outcome) {
+  function buildFireTemplate(unitList, dispatcher, incType, whereStr, arrCond, arrEx, finding, findDet, cause, actions, actEx, outcome, svcTicketDest) {
     const loc = whereStr || 'the reported location';
     // Block 1: Dispatch
     const b1 = `${unitList} dispatched by ${dispatcher} to a ${incType} at ${loc}.`;
@@ -745,9 +761,16 @@
     }
 
     // Block 4: Actions + outcome
-    const actParts = [...actions];
-    if (outcome) actParts.push(`unit ${outcome}`);
-    let b4 = actParts.length ? actParts.join(' and ') + '.' : '';
+    let b4 = '';
+    if (outcome === 'service_ticket') {
+      const actLine = actions.length ? actions.join(', ') + '.' : '';
+      const dest = svcTicketDest || 'G-F';
+      b4 = [actLine, `Fire alarm system was not able to be restored, requested service ticket to ${dest}.`].filter(Boolean).join('\n');
+    } else {
+      const actParts = [...actions];
+      if (outcome) actParts.push(`unit ${outcome}`);
+      b4 = actParts.length ? actParts.join(' and ') + '.' : '';
+    }
     if (actEx) b4 += (b4 ? '\n' : '') + (actEx.endsWith('.') ? actEx : actEx + '.');
 
     return [b1, b2, b3, b4].filter(Boolean).join('\n');
@@ -847,30 +870,34 @@
       }
 
       /* ════ FIRE / OTHER ════ */
-      const arrCond  = v('arrivalCondition');
-      const rawArrEx = v('arrivalExtra');
-      const finding  = v('finding');
-      const rawFindD = v('findingDetail');
-      const cause    = v('cause') || 'cause unknown';
-      const rawActEx = v('actionsExtra');
-      const outcome  = v('outcome') || 'returned to station';
-      const actions  = [...document.querySelectorAll('.action-select')].map(s => s.value).filter(Boolean);
+      const arrCond       = v('arrivalCondition');
+      const rawArrEx      = v('arrivalExtra');
+      const finding       = v('finding');
+      const rawFindD      = v('findingDetail');
+      const cause         = v('cause') || 'cause unknown';
+      const rawActEx      = v('actionsExtra');
+      const outcome       = v('outcome') || 'returned to station';
+      const svcTicketDest = v('serviceTicketDest') || 'G-F';
+      const actions       = [...document.querySelectorAll('.action-select')].map(s => s.value).filter(Boolean);
 
       if (freeNarr) {
         narrative = await tx(freeNarr);
       } else if (useAI) {
         const sys = `You are a professional military fire department incident report writer. Format the narrative with each section on a new line (single newline \\n, NO blank lines), matching this style exactly:\n"[Units] dispatched by [dispatcher] to a [incident type] at [location]."\n"Arrived on scene to find nothing showing after conducting 360 survey."\n"Upon investigation [finding] was found in [location], caused by [cause]."\n"[Actions]. [Unit] returned to station."\n\nRules: past tense, IFSTA/NFPA terminology. Abbreviate fire alarm as "F/Alarm". Use "360 survey". Translate Japanese to English. No bullet points, no headers, no blank lines.`;
         const [arrEx, findD, actEx] = await Promise.all([tx(rawArrEx), tx(rawFindD), tx(rawActEx)]);
-        const usr = `Units: ${unitList}\nDispatched by: ${dispatcher}\nIncident type: ${incType}\nLocation: ${whereStr || 'reported location'}\nArrival: ${arrCond || 'not specified'}${arrEx ? '; ' + arrEx : ''}\nFinding: ${finding || 'not specified'}${findD ? ' in ' + findD : ''}\nCause: ${cause}\nActions: ${actions.length ? actions.join(', ') : 'none'}\nNotes: ${actEx || 'none'}\nOutcome: ${outcome}`;
+        const outcomeDesc = outcome === 'service_ticket'
+          ? `Fire alarm system was not able to be restored, requested service ticket to ${svcTicketDest}`
+          : outcome;
+        const usr = `Units: ${unitList}\nDispatched by: ${dispatcher}\nIncident type: ${incType}\nLocation: ${whereStr || 'reported location'}\nArrival: ${arrCond || 'not specified'}${arrEx ? '; ' + arrEx : ''}\nFinding: ${finding || 'not specified'}${findD ? ' in ' + findD : ''}\nCause: ${cause}\nActions: ${actions.length ? actions.join(', ') : 'none'}\nNotes: ${actEx || 'none'}\nOutcome: ${outcomeDesc}`;
         const ai = await callClaude(sys, usr);
         if (ai) {
           narrative = ai;
         } else {
-          narrative = buildFireTemplate(unitList, dispatcher, incType, whereStr, arrCond, arrEx, finding, findD, cause, actions, actEx, outcome);
+          narrative = buildFireTemplate(unitList, dispatcher, incType, whereStr, arrCond, arrEx, finding, findD, cause, actions, actEx, outcome, svcTicketDest);
         }
       } else {
         const [arrEx, findD, actEx] = await Promise.all([tx(rawArrEx), tx(rawFindD), tx(rawActEx)]);
-        narrative = buildFireTemplate(unitList, dispatcher, incType, whereStr, arrCond, arrEx, finding, findD, cause, actions, actEx, outcome);
+        narrative = buildFireTemplate(unitList, dispatcher, incType, whereStr, arrCond, arrEx, finding, findD, cause, actions, actEx, outcome, svcTicketDest);
       }
 
       showReport(units, incType, whenStr, whereStr, narrative);
