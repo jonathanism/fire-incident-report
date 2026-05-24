@@ -269,25 +269,27 @@
         <label>種別 <span class="ja">Incident Type</span> <span class="req">*</span></label>
         <select id="incidentType">
           <option value="">選択...</option>
-          <optgroup label="火災">
+          <optgroup label="メディカル">
+            <option value="MEDICAL EMERGENCY">医療緊急 / Medical Emergency</option>
+          </optgroup>
+          <optgroup label="警報">
+            <option value="FIRE ALARM">火災警報 / Fire Alarm</option>
+            <option value="TROUBLE ALARM">トラブル警報 / Trouble Alarm</option>
+            <option value="SUPERVISORY ALARM">監視警報 / Supervisory Alarm</option>
+            <option value="CARBON MONOXIDE ALARM">CO警報 / CO Alarm</option>
+            <option value="FALSE ALARM">誤報 / False Alarm</option>
+          </optgroup>
+          <optgroup label="MVA">
+            <option value="VEHICLE ACCIDENT">交通事故 / Vehicle Accident</option>
+          </optgroup>
+          <optgroup label="その他">
             <option value="STRUCTURE FIRE">建物火災 / Structure Fire</option>
             <option value="VEHICLE FIRE">車両火災 / Vehicle Fire</option>
             <option value="WILDLAND FIRE">山林火災 / Wildland Fire</option>
             <option value="ELECTRICAL FIRE">電気火災 / Electrical Fire</option>
-          </optgroup>
-          <optgroup label="警報・調査">
-            <option value="FIRE ALARM">火災警報 / Fire Alarm</option>
-            <option value="TROUBLE ALARM">トラブル警報 / Trouble Alarm</option>
-            <option value="SUPERVISORY ALARM">監視警報 / Supervisory Alarm</option>
             <option value="SMOKE INVESTIGATION">煙調査 / Smoke Investigation</option>
-            <option value="CARBON MONOXIDE ALARM">CO警報 / CO Alarm</option>
-            <option value="FALSE ALARM">誤報 / False Alarm</option>
-          </optgroup>
-          <optgroup label="救急・その他">
-            <option value="MEDICAL EMERGENCY">医療緊急 / Medical Emergency</option>
             <option value="HAZMAT INCIDENT">危険物 / Hazmat Incident</option>
             <option value="GAS LEAK">ガス漏れ / Gas Leak</option>
-            <option value="VEHICLE ACCIDENT">交通事故 / Vehicle Accident</option>
             <option value="MUTUAL AID">相互援助 / Mutual Aid</option>
           </optgroup>
         </select>
