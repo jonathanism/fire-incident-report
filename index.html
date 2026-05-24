@@ -163,6 +163,24 @@
     .stats-table .num { text-align: right; font-weight: 700; color: var(--accent); }
     .type-pill { display: inline-block; background: var(--red-dk); color:#fff; font-size:.6rem; font-weight:800; padding:2px 7px; border-radius:3px; letter-spacing:.04em; }
 
+    /* ── Autocomplete ── */
+    .ac-wrap { position: relative; }
+    .ac-list {
+      position: absolute; top: calc(100% + 3px); left: 0; right: 0;
+      background: var(--panel); border: 1.5px solid var(--red);
+      border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,.5);
+      max-height: 220px; overflow-y: auto; z-index: 400; display: none;
+    }
+    .ac-list.open { display: block; }
+    .ac-item {
+      padding: 10px 14px; font-size: .88rem; cursor: pointer;
+      color: var(--text); border-bottom: 1px solid rgba(58,63,75,.3);
+      transition: background .1s;
+    }
+    .ac-item:last-child { border-bottom: none; }
+    .ac-item:hover, .ac-item.sel { background: rgba(192,57,43,.25); }
+    .ac-item strong { color: var(--accent); font-weight: 800; }
+
     /* ── Mobile ── */
     @media (max-width: 640px) {
       header { padding: 10px 12px; gap: 8px; }
@@ -675,6 +693,86 @@
 </div>
 
 <script>
+  /* ════ AUTOCOMPLETE DATA ════ */
+  const AC_UNITS = [
+    'E-11','L-1','MED-1','E-21','L-2','E-22','MED-2','HAZ-2',
+    'E-31','E-32','MED-3','RES-1','RES-2','E-41','E-42','MED-4',
+    'E-51','MED-5','E-61','E-62','L-6','HAZ-6','E-81','E-91',
+    'OPS-1','OPS-2','OPS-3','OPS-4','BATT-1','BATT-2','SQD-1','SQD-8'
+  ];
+  const AC_DISPATCH = [
+    'Butler Fire','Walk-in Camp Foster','Camp Courtney','Camp Hansen',
+    'Camp Schwab','MCAS Futenma','Camp Kinser','Plaza Housing','Camp McTureous'
+  ];
+  const AC_LOCATION = ['Bldg#','Room#','Building #','Floor #','Gate #'];
+
+  function initAC(inputId, data, isMulti) {
+    const inp = document.getElementById(inputId);
+    if (!inp) return;
+    const wrap = document.createElement('div');
+    wrap.className = 'ac-wrap';
+    inp.parentNode.insertBefore(wrap, inp);
+    wrap.appendChild(inp);
+    const list = document.createElement('div');
+    list.className = 'ac-list';
+    wrap.appendChild(list);
+    let ai = -1;
+
+    const token = () => {
+      if (!isMulti) return inp.value;
+      const lc = inp.value.lastIndexOf(',');
+      return inp.value.slice(lc + 1).trim();
+    };
+    const pfx = () => {
+      if (!isMulti) return '';
+      const lc = inp.value.lastIndexOf(',');
+      return lc < 0 ? '' : inp.value.slice(0, lc + 1) + ' ';
+    };
+
+    const render = () => {
+      const q = token().toUpperCase();
+      if (!q) { list.classList.remove('open'); return; }
+      const hits = data.filter(d => d.toUpperCase().includes(q));
+      if (!hits.length) { list.classList.remove('open'); return; }
+      ai = -1;
+      list.innerHTML = hits.map(m => {
+        const qi = m.toUpperCase().indexOf(q);
+        const hl = qi >= 0
+          ? escHtml(m.slice(0,qi)) + '<strong>' + escHtml(m.slice(qi,qi+q.length)) + '</strong>' + escHtml(m.slice(qi+q.length))
+          : escHtml(m);
+        return `<div class="ac-item" data-v="${escHtml(m)}">${hl}</div>`;
+      }).join('');
+      list.classList.add('open');
+      list.querySelectorAll('.ac-item').forEach(el => {
+        el.onmousedown = e => {
+          e.preventDefault();
+          inp.value = isMulti ? pfx() + el.dataset.v + ', ' : el.dataset.v;
+          list.classList.remove('open');
+          inp.focus();
+        };
+      });
+    };
+
+    inp.addEventListener('input', render);
+    inp.addEventListener('focus', render);
+    inp.addEventListener('blur', () => setTimeout(() => list.classList.remove('open'), 200));
+    inp.addEventListener('keydown', e => {
+      const items = [...list.querySelectorAll('.ac-item')];
+      if (!items.length || !list.classList.contains('open')) return;
+      if (e.key === 'ArrowDown') {
+        e.preventDefault(); ai = Math.min(ai+1, items.length-1);
+        items.forEach((el,i) => el.classList.toggle('sel', i===ai));
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault(); ai = Math.max(ai-1, 0);
+        items.forEach((el,i) => el.classList.toggle('sel', i===ai));
+      } else if ((e.key==='Enter'||e.key==='Tab') && ai >= 0) {
+        e.preventDefault();
+        inp.value = isMulti ? pfx() + items[ai].dataset.v + ', ' : items[ai].dataset.v;
+        list.classList.remove('open');
+      } else if (e.key==='Escape') list.classList.remove('open');
+    });
+  }
+
   /* ════ SUPABASE ════ */
   const SUPABASE_URL = 'https://mvpryibpkcxqtskuwhal.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_FSf9DBcVyFFL5CTMrXSveQ_TwGdBMQr';
@@ -828,6 +926,11 @@
       document.getElementById('medicalSteps').style.display = med ? '' : 'none';
     });
     initAuth();
+
+    // Autocomplete
+    initAC('units',          AC_UNITS,    true);
+    initAC('dispatcher',     AC_DISPATCH, false);
+    initAC('locationDetail', AC_LOCATION, false);
   });
 
   function addAction() {
