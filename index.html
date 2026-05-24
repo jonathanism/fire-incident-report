@@ -748,7 +748,7 @@
     let b4 = actParts.length ? actParts.join(' and ') + '.' : '';
     if (actEx) b4 += (b4 ? '\n' : '') + (actEx.endsWith('.') ? actEx : actEx + '.');
 
-    return [b1, b2, b3, b4].filter(Boolean).join('\n\n');
+    return [b1, b2, b3, b4].filter(Boolean).join('\n');
   }
 
   function buildMedTemplate(unitList, dispatcher, whereStr, arr, cc, hx, ass, treatment, outcome, dest, transportUnit) {
@@ -783,10 +783,10 @@
       const d = dest || 'USNH';
       const u = transportUnit;
       lines.push(u ? `Patient was transported to ${d} by ${u}.` : `Patient was transported to ${d}.`);
-      b4 = lines.join('\n\n');
+      b4 = lines.join('\n');
     }
 
-    return [b1, b2, b3, b4].filter(Boolean).join('\n\n');
+    return [b1, b2, b3, b4].filter(Boolean).join('\n');
   }
 
   async function generateReport() {
@@ -827,7 +827,7 @@
           narrative = await tx(freeNarr);
         } else if (useAI) {
           const isROC = medOutc === 'roc';
-          const sys = `You are a professional military EMS incident report writer. Format the narrative in exactly 4 blocks separated by a blank line (\\n\\n):\n\nBlock 1 (1 sentence): "[Units] dispatched by [dispatcher] to a medical call at [location]."\nBlock 2 (1 sentence): "Arrived on scene to find [patient description], c/c [chief complaint]."\nBlock 3 (1 flowing paragraph, NO line breaks): ICHART — History, Assessment, and Rendered Care all combined into one paragraph using EMS terminology.\nBlock 4: ${isROC ? '"Patient was ROC."' : '"Crew assisted EMT with patient assessment and loaded the patient to the ambulance.\\n\\nPatient was transported to [destination] by [unit]."'}\n\nRules: past tense, EMS abbreviations (c/c, PMH, AVPU, GCS, VS, BP, HR, RR, SpO2, RA, NRB, IV, ECG). Vitals format: "VS: BP xxx/xx, HR xx, RR xx, SpO2 xx% on RA". Translate Japanese to English. No bullet points, no headers, no labels.`;
+          const sys = `You are a professional military EMS incident report writer. Format the narrative in exactly 4 lines separated by a single newline (\\n), NO blank lines:\n\nLine 1: "[Units] dispatched by [dispatcher] to a medical call at [location]."\nLine 2: "Arrived on scene to find [patient description], c/c [chief complaint]."\nLine 3 (1 flowing paragraph, NO internal line breaks): ICHART — History, Assessment, and Rendered Care combined into one paragraph.\nLine 4: ${isROC ? '"Patient was ROC."' : '"Crew assisted EMT with patient assessment and loaded the patient to the ambulance." then newline "Patient was transported to [destination] by [unit]."'}\n\nRules: past tense, EMS abbreviations (c/c, PMH, AVPU, GCS, VS, BP, HR, RR, SpO2, RA, NRB, IV, ECG). Vitals: "VS: BP xxx/xx, HR xx, RR xx, SpO2 xx% on RA". Translate Japanese. No bullet points, no headers.`;
           const usr = `Units: ${unitList}\nDispatched by: ${dispatcher}\nLocation: ${whereStr || 'reported location'}\nPatient found: ${rawArr}\nChief complaint: ${rawCC}\nHistory: ${rawHx}\nAssessment: ${rawAss}\nTreatment: ${rawTx}\nOutcome: ${isROC ? 'ROC' : `Transported to ${rawDest} by ${rawUnit || 'Medic unit'}`}`;
           const ai = await callClaude(sys, usr);
           if (ai) {
@@ -861,7 +861,7 @@
       if (freeNarr) {
         narrative = await tx(freeNarr);
       } else if (useAI) {
-        const sys = `You are a professional military fire department incident report writer. Format the narrative in blocks separated by a blank line (\\n\\n), matching this style:\n\n"[Units] dispatched by [dispatcher] to a [incident type] at [location]."\n\n"Arrived on scene to find nothing showing after conducting 360 survey." (or relevant condition)\n\n"Upon investigation [finding] was found in [location], caused by [cause]."\n\n"[Actions]. [Unit] returned to station." (or relevant resolution)\n\nRules: past tense, IFSTA/NFPA terminology. Abbreviate fire alarm as "F/Alarm". Use "360 survey" not "360-degree survey". Translate Japanese to English. No bullet points, no headers.`;
+        const sys = `You are a professional military fire department incident report writer. Format the narrative with each section on a new line (single newline \\n, NO blank lines), matching this style exactly:\n"[Units] dispatched by [dispatcher] to a [incident type] at [location]."\n"Arrived on scene to find nothing showing after conducting 360 survey."\n"Upon investigation [finding] was found in [location], caused by [cause]."\n"[Actions]. [Unit] returned to station."\n\nRules: past tense, IFSTA/NFPA terminology. Abbreviate fire alarm as "F/Alarm". Use "360 survey". Translate Japanese to English. No bullet points, no headers, no blank lines.`;
         const [arrEx, findD, actEx] = await Promise.all([tx(rawArrEx), tx(rawFindD), tx(rawActEx)]);
         const usr = `Units: ${unitList}\nDispatched by: ${dispatcher}\nIncident type: ${incType}\nLocation: ${whereStr || 'reported location'}\nArrival: ${arrCond || 'not specified'}${arrEx ? '; ' + arrEx : ''}\nFinding: ${finding || 'not specified'}${findD ? ' in ' + findD : ''}\nCause: ${cause}\nActions: ${actions.length ? actions.join(', ') : 'none'}\nNotes: ${actEx || 'none'}\nOutcome: ${outcome}`;
         const ai = await callClaude(sys, usr);
