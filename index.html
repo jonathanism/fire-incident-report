@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Fire Incident Report Generator</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
   <style>
     :root {
       --red:    #c0392b;
@@ -143,6 +144,24 @@
     .auth-msg { border-radius: 6px; padding: 9px 12px; font-size: .8rem; margin-bottom: 12px; display: none; }
     .auth-msg.err { background: rgba(192,57,43,.2); border: 1px solid var(--red); color: #e88; }
     .auth-msg.ok  { background: rgba(39,174,96,.2);  border: 1px solid var(--green); color: #6d8; }
+
+    /* ── Stats ── */
+    .stats-cards { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-bottom: 10px; }
+    .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px 14px; text-align: center; }
+    .stat-num { font-size: 2rem; font-weight: 900; color: var(--accent); line-height: 1; }
+    .stat-label { font-size: .7rem; color: var(--muted); margin-top: 6px; text-transform: uppercase; letter-spacing: .05em; }
+    .stat-card.highlight { border-color: var(--accent); background: rgba(240,165,0,.07); }
+    .stats-chart-row { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; margin-bottom: 10px; }
+    @media(max-width:600px){ .stats-cards { grid-template-columns: repeat(3,1fr); } .stats-chart-row { grid-template-columns: 1fr; } }
+    .chart-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+    .chart-title { font-size: .72rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 12px; }
+    .stats-table { width: 100%; border-collapse: collapse; font-size: .8rem; }
+    .stats-table th { background: var(--panel); color: var(--muted); font-size: .68rem; text-transform: uppercase; letter-spacing: .05em; padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border); }
+    .stats-table td { padding: 7px 10px; border-bottom: 1px solid rgba(58,63,75,.4); color: var(--text); }
+    .stats-table tr:last-child td { border-bottom: none; }
+    .stats-table tr:hover td { background: rgba(255,255,255,.03); }
+    .stats-table .num { text-align: right; font-weight: 700; color: var(--accent); }
+    .type-pill { display: inline-block; background: var(--red-dk); color:#fff; font-size:.6rem; font-weight:800; padding:2px 7px; border-radius:3px; letter-spacing:.04em; }
 
     /* ── Mobile ── */
     @media (max-width: 640px) {
@@ -563,6 +582,44 @@
     <button class="history-clear-btn" onclick="clearAllHistory()">自分の履歴を削除</button>
   </div>
   <div id="historyList"></div>
+
+  <!-- STATS -->
+  <div class="section-label" style="margin-top:28px;">
+    <span class="tag" style="background:#6c3483;">STATS</span>
+    <span class="label-text">月次集計</span>
+    <span class="line"></span>
+    <button class="history-clear-btn" id="statsToggleBtn" onclick="toggleStats()">表示</button>
+  </div>
+  <div id="statsSection" style="display:none;">
+    <div class="stats-cards">
+      <div class="stat-card highlight">
+        <div class="stat-num" id="statThisMonth">—</div>
+        <div class="stat-label">今月</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num" id="statLastMonth">—</div>
+        <div class="stat-label">先月</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num" id="statTotal">—</div>
+        <div class="stat-label">累計</div>
+      </div>
+    </div>
+    <div class="stats-chart-row">
+      <div class="chart-card">
+        <div class="chart-title">📊 月別出動件数（過去6ヶ月）</div>
+        <canvas id="monthlyChart"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">🍩 種別内訳</div>
+        <canvas id="typeChart"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">📋 月別詳細テーブル</div>
+      <div id="statsTableWrap"></div>
+    </div>
+  </div>
 
 </div><!-- .wrapper -->
 
@@ -1110,6 +1167,130 @@
       btn.textContent = '🔥 GENERATE INCIDENT REPORT';
       btn.disabled = false;
     }
+  }
+
+  /* ════ MONTHLY STATS ════ */
+  let monthlyChartInst = null;
+  let typeChartInst    = null;
+  let statsVisible     = false;
+
+  function toggleStats() {
+    statsVisible = !statsVisible;
+    document.getElementById('statsSection').style.display = statsVisible ? '' : 'none';
+    document.getElementById('statsToggleBtn').textContent = statsVisible ? '非表示' : '表示';
+    if (statsVisible) loadStats();
+  }
+
+  async function loadStats() {
+    if (!currentUser || !currentProfile?.station_id) return;
+
+    // Fetch all reports for this station (for totals + 6-month view)
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
+    sixMonthsAgo.setDate(1);
+    sixMonthsAgo.setHours(0,0,0,0);
+
+    const { data: reports } = await sb.from('reports')
+      .select('incident_type, created_at')
+      .eq('station_id', currentProfile.station_id)
+      .gte('created_at', sixMonthsAgo.toISOString())
+      .order('created_at', { ascending: true });
+
+    const { count: totalAll } = await sb.from('reports')
+      .select('*', { count:'exact', head:true })
+      .eq('station_id', currentProfile.station_id);
+
+    if (!reports) return;
+
+    // Build month buckets (last 6 months)
+    const now = new Date();
+    const byMonth = {};
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+      byMonth[key] = { label: `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}`, total: 0, types: {} };
+    }
+
+    const byType = {};
+    reports.forEach(r => {
+      const d   = new Date(r.created_at);
+      const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+      const typ = r.incident_type || 'UNKNOWN';
+      if (byMonth[key]) {
+        byMonth[key].total++;
+        byMonth[key].types[typ] = (byMonth[key].types[typ] || 0) + 1;
+      }
+      byType[typ] = (byType[typ] || 0) + 1;
+    });
+
+    // Summary cards
+    const months = Object.keys(byMonth).sort();
+    const thisKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+    const lastKey = months[months.length - 2];
+    document.getElementById('statThisMonth').textContent = byMonth[thisKey]?.total ?? 0;
+    document.getElementById('statLastMonth').textContent = byMonth[lastKey]?.total ?? 0;
+    document.getElementById('statTotal').textContent     = totalAll ?? reports.length;
+
+    // Monthly bar chart
+    const labels  = months.map(k => byMonth[k].label);
+    const totals  = months.map(k => byMonth[k].total);
+    const COLORS  = ['#c0392b','#e67e22','#f0a500','#27ae60','#2980b9','#8e44ad'];
+
+    if (monthlyChartInst) monthlyChartInst.destroy();
+    monthlyChartInst = new Chart(document.getElementById('monthlyChart'), {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          label: '出動件数',
+          data: totals,
+          backgroundColor: labels.map((_,i) => COLORS[i % COLORS.length]),
+          borderRadius: 6,
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color:'#8b93a5' }, grid: { color:'rgba(58,63,75,.4)' } },
+          y: { ticks: { color:'#8b93a5', stepSize:1 }, grid: { color:'rgba(58,63,75,.4)' }, beginAtZero: true }
+        }
+      }
+    });
+
+    // Type donut chart
+    const typeLabels = Object.keys(byType);
+    const typeVals   = typeLabels.map(k => byType[k]);
+    const pieColors  = typeLabels.map((_,i) => COLORS[i % COLORS.length]);
+
+    if (typeChartInst) typeChartInst.destroy();
+    typeChartInst = new Chart(document.getElementById('typeChart'), {
+      type: 'doughnut',
+      data: { labels: typeLabels, datasets: [{ data: typeVals, backgroundColor: pieColors, borderWidth: 2, borderColor: '#2c313a' }] },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { position:'bottom', labels: { color:'#8b93a5', font:{ size:10 }, boxWidth:12 } }
+        }
+      }
+    });
+
+    // Table
+    const allTypes = [...new Set(reports.map(r => r.incident_type || 'UNKNOWN'))].sort();
+    let html = `<table class="stats-table"><thead><tr><th>月</th><th>合計</th>`;
+    allTypes.forEach(t => { html += `<th>${t.replace(' ALARM','').replace(' EMERGENCY','')}</th>`; });
+    html += `</tr></thead><tbody>`;
+    months.slice().reverse().forEach(k => {
+      const m = byMonth[k];
+      html += `<tr><td>${m.label}</td><td class="num">${m.total}</td>`;
+      allTypes.forEach(t => { html += `<td class="num">${m.types[t]||'—'}</td>`; });
+      html += `</tr>`;
+    });
+    // Total row
+    html += `<tr style="font-weight:800;border-top:2px solid var(--border);"><td>合計</td><td class="num">${reports.length}</td>`;
+    allTypes.forEach(t => { html += `<td class="num">${byType[t]||'—'}</td>`; });
+    html += `</tr></tbody></table>`;
+    document.getElementById('statsTableWrap').innerHTML = html;
   }
 
   function copyReport() {
