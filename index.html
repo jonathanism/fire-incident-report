@@ -766,12 +766,8 @@
       b2 = `Arrived on scene to find patient c/c ${cc}.`;
     }
 
-    // Block 3: ICHART flowing paragraph (History + Assessment + Treatment)
-    const ichart = [];
-    if (hx)        ichart.push(hx.trimEnd().endsWith('.') ? hx.trimEnd() : hx.trimEnd() + '.');
-    if (ass)       ichart.push(ass.trimEnd().endsWith('.') ? ass.trimEnd() : ass.trimEnd() + '.');
-    if (treatment) ichart.push(treatment.trimEnd().endsWith('.') ? treatment.trimEnd() : treatment.trimEnd() + '.');
-    const b3 = ichart.join(' ');
+    // Block 3: Brief incident history (what happened)
+    const b3 = hx ? (hx.trimEnd().endsWith('.') ? hx.trimEnd() : hx.trimEnd() + '.') : '';
 
     // Block 4: Crew assist + transport or ROC
     let b4 = '';
@@ -827,7 +823,7 @@
           narrative = await tx(freeNarr);
         } else if (useAI) {
           const isROC = medOutc === 'roc';
-          const sys = `You are a professional military EMS incident report writer. Format the narrative in exactly 4 lines separated by a single newline (\\n), NO blank lines:\n\nLine 1: "[Units] dispatched by [dispatcher] to a medical call at [location]."\nLine 2: "Arrived on scene to find [patient description], c/c [chief complaint]."\nLine 3 (1 flowing paragraph, NO internal line breaks): ICHART — History, Assessment, and Rendered Care combined into one paragraph.\nLine 4: ${isROC ? '"Patient was ROC."' : '"Crew assisted EMT with patient assessment and loaded the patient to the ambulance." then newline "Patient was transported to [destination] by [unit]."'}\n\nRules: past tense, EMS abbreviations (c/c, PMH, AVPU, GCS, VS, BP, HR, RR, SpO2, RA, NRB, IV, ECG). Vitals: "VS: BP xxx/xx, HR xx, RR xx, SpO2 xx% on RA". Translate Japanese. No bullet points, no headers.`;
+          const sys = `You are a military fire department EMS report writer. Write the narrative in this exact format — each section on its own line, single newline between lines, NO blank lines:\n\nLine 1: "[Units] dispatched by [dispatcher] to a medical call at [location]."\nLine 2: "Arrived on scene to find [age] y/o [male/female] patient, [position/condition], c/c [chief complaint]."\nLine 3: One short natural sentence describing what the patient was doing or what happened (e.g. "Patient was eating dinner at the restaurant, suddenly felt dizzy."). Use the History field for this. Keep it simple and readable — no medical jargon, no vitals, no headers.\n${isROC ? 'Line 4: "Patient was ROC."' : 'Line 4: "Crew assisted EMT with patient assessment and loaded the patient to the ambulance."\nLine 5: "Patient was transported to [destination] by [unit]."'}\n\nRules: past tense, natural readable English. Translate Japanese to English. No bullet points, no headers, no blank lines.`;
           const usr = `Units: ${unitList}\nDispatched by: ${dispatcher}\nLocation: ${whereStr || 'reported location'}\nPatient found: ${rawArr}\nChief complaint: ${rawCC}\nHistory: ${rawHx}\nAssessment: ${rawAss}\nTreatment: ${rawTx}\nOutcome: ${isROC ? 'ROC' : `Transported to ${rawDest} by ${rawUnit || 'Medic unit'}`}`;
           const ai = await callClaude(sys, usr);
           if (ai) {
