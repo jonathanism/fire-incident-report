@@ -528,8 +528,23 @@
         <div class="step-num">6</div>
         <div class="step-body">
           <div class="field">
-            <label>引き継ぎ <span class="ja">Transfer of care</span></label>
-            <input type="text" id="medTransfer" placeholder="例: Transferred to Naval Hospital Okinawa, turned over to ER staff."/>
+            <label>搬送結果 <span class="ja">Patient Outcome</span></label>
+            <select id="medOutcome" onchange="toggleMedTransport()">
+              <option value="transported">搬送 / Transported to hospital</option>
+              <option value="roc">拒否 / ROC (Refusal of Care)</option>
+            </select>
+          </div>
+          <div id="medTransportFields">
+            <div class="row2">
+              <div class="field">
+                <label>搬送先 <span class="ja">Transported to</span></label>
+                <input type="text" id="medTransferDest" placeholder="例: USNH Okinawa"/>
+              </div>
+              <div class="field">
+                <label>搬送ユニット <span class="ja">Transport unit</span></label>
+                <input type="text" id="medTransferUnit" placeholder="例: Medic-1"/>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -586,6 +601,12 @@
 <footer>Fire Incident Report Generator — For training / drill use only</footer>
 
 <script>
+  /* ── Medical transport toggle ── */
+  function toggleMedTransport() {
+    const isROC = document.getElementById('medOutcome').value === 'roc';
+    document.getElementById('medTransportFields').style.display = isROC ? 'none' : '';
+  }
+
   /* ── API Key ── */
   function saveApiKey() {
     const k = (document.getElementById('claudeApiKey').value || '').trim();
@@ -698,49 +719,74 @@
 
   /* ── Template builders (used when no API key) ── */
   function buildFireTemplate(unitList, dispatcher, incType, whereStr, arrCond, arrEx, finding, findDet, cause, actions, actEx, outcome) {
-    const parts = [];
-    const whereRef = whereStr || 'the reported location';
-    parts.push(`${unitList} dispatched by ${dispatcher} for a ${incType} at ${whereRef}.`);
+    const loc = whereStr || 'the reported location';
+    // Block 1: Dispatch
+    const b1 = `${unitList} dispatched by ${dispatcher} to a ${incType} at ${loc}.`;
+
+    // Block 2: Arrival
+    let b2 = '';
     if (arrCond) {
-      let s = arrCond.includes('360')
-        ? 'Arrived on scene to find nothing showing outside on 360'
-        : `Arrived on scene to find ${arrCond}`;
-      if (arrEx) s += `; ${arrEx}`;
-      parts.push(s + '.');
+      b2 = arrCond.includes('360')
+        ? 'Arrived on scene to find nothing showing after conducting 360 survey.'
+        : `Arrived on scene to find ${arrCond}.`;
+      if (arrEx) b2 += ' ' + (arrEx.endsWith('.') ? arrEx : arrEx + '.');
     }
-    if (finding || findDet || cause) {
-      let f = finding ? finding + (findDet ? ` in ${findDet}` : '') : (findDet ? `conditions found in ${findDet}` : '');
-      let inv = f ? `Upon investigation ${f} was found` : 'Upon investigation';
-      parts.push(inv + `; ${cause}.`);
+
+    // Block 3: Investigation
+    let b3 = '';
+    if (finding || findDet) {
+      let f = finding || '';
+      if (findDet) f += (f ? ` in ${findDet}` : findDet);
+      b3 = `Upon investigation ${f} was found`;
+      if (cause && cause !== 'cause unknown') b3 += `, caused by ${cause}`;
+      b3 += '.';
     }
-    if (actions.length === 1) {
-      parts.push(`${actions[0]} and responding unit ${outcome}.`);
-    } else if (actions.length > 1) {
-      parts.push(`${actions.slice(0,-1).join(', ')}, and ${actions[actions.length-1]}.`);
-      parts.push(`Responding unit ${outcome}.`);
-    } else {
-      parts.push(`Responding unit ${outcome}.`);
-    }
-    if (actEx) parts.push(actEx);
-    return parts.join(' ');
+
+    // Block 4: Actions + outcome
+    const actParts = [...actions];
+    if (outcome) actParts.push(`unit ${outcome}`);
+    let b4 = actParts.length ? actParts.join(' and ') + '.' : '';
+    if (actEx) b4 += (b4 ? '\n' : '') + (actEx.endsWith('.') ? actEx : actEx + '.');
+
+    return [b1, b2, b3, b4].filter(Boolean).join('\n\n');
   }
 
-  function buildMedTemplate(unitList, dispatcher, whereStr, arr, cc, hx, ass, treatment, toc) {
+  function buildMedTemplate(unitList, dispatcher, whereStr, arr, cc, hx, ass, treatment, outcome, dest, transportUnit) {
+    const loc = whereStr || 'the reported location';
     // Block 1: Dispatch
-    const block1 = `${unitList} dispatched by ${dispatcher} for a MEDICAL EMERGENCY at ${whereStr || 'the reported location'}.`;
+    const b1 = `${unitList} dispatched by ${dispatcher} to a medical call at ${loc}.`;
 
-    // Block 2: Arrived on scene + patient info
-    const scene = [];
-    if (arr)       scene.push(`Arrived on scene to find ${arr}.`);
-    if (cc)        scene.push(`Chief complaint of ${cc}.`);
-    if (hx)        scene.push(`History: ${hx}.`);
-    if (ass)       scene.push(`Assessment: ${ass}.`);
-    if (treatment) scene.push(`Rendered care: ${treatment}.`);
+    // Block 2: Arrival + CC in one sentence
+    let b2 = '';
+    if (arr) {
+      b2 = `Arrived on scene to find ${arr}`;
+      if (cc) b2 += `, c/c ${cc}`;
+      b2 += '.';
+    } else if (cc) {
+      b2 = `Arrived on scene to find patient c/c ${cc}.`;
+    }
 
-    // Block 3: Transport / Transfer of care
-    const block3 = toc ? `Transfer of care: ${toc}.` : '';
+    // Block 3: ICHART flowing paragraph (History + Assessment + Treatment)
+    const ichart = [];
+    if (hx)        ichart.push(hx.trimEnd().endsWith('.') ? hx.trimEnd() : hx.trimEnd() + '.');
+    if (ass)       ichart.push(ass.trimEnd().endsWith('.') ? ass.trimEnd() : ass.trimEnd() + '.');
+    if (treatment) ichart.push(treatment.trimEnd().endsWith('.') ? treatment.trimEnd() : treatment.trimEnd() + '.');
+    const b3 = ichart.join(' ');
 
-    return [block1, scene.join(' '), block3].filter(Boolean).join('\n');
+    // Block 4: Crew assist + transport or ROC
+    let b4 = '';
+    if (outcome === 'roc') {
+      b4 = 'Patient was ROC.';
+    } else {
+      const lines = [];
+      lines.push('Crew assisted EMT with patient assessment and loaded the patient to the ambulance.');
+      const d = dest || 'USNH';
+      const u = transportUnit;
+      lines.push(u ? `Patient was transported to ${d} by ${u}.` : `Patient was transported to ${d}.`);
+      b4 = lines.join('\n\n');
+    }
+
+    return [b1, b2, b3, b4].filter(Boolean).join('\n\n');
   }
 
   async function generateReport() {
@@ -771,24 +817,31 @@
 
       /* ════ MEDICAL ════ */
       if (isMedical) {
-        const rawArr = v('medArrival'), rawCC = v('medCC'), rawHx = v('medHistory');
-        const rawAss = v('medAssessment'), rawTx = v('medTreatment'), rawToc = v('medTransfer');
+        const rawArr  = v('medArrival'), rawCC = v('medCC'), rawHx = v('medHistory');
+        const rawAss  = v('medAssessment'), rawTx = v('medTreatment');
+        const medOutc = v('medOutcome') || 'transported';
+        const rawDest = v('medTransferDest') || 'USNH';
+        const rawUnit = v('medTransferUnit');
 
         if (freeNarr) {
           narrative = await tx(freeNarr);
         } else if (useAI) {
-          const sys = `You are a professional military EMS incident report writer. Write the narrative in exactly 3 blocks separated by a single newline (\\n), with no blank lines between them:\n\nBlock 1 (one sentence): Dispatch — units, dispatcher, incident type, location.\nBlock 2 (one paragraph, no line breaks): Arrival scene + patient info — start with "Arrived on scene to find...", then chief complaint, history, assessment, and treatment rendered, all as one flowing paragraph.\nBlock 3 (one sentence): Transfer of care / patient transport.\n\nRules: past tense, standard EMS terminology, abbreviations (c/c, PMH, AVPU, GCS, VS, BP, HR, RR, SpO2, RA, NRB, IV, ECG, ALS, BLS, ER, AED). Format vitals: "VS: BP xxx/xx, HR xx, RR xx, SpO2 xx% on RA". If input is Japanese, translate and rephrase using proper EMS English. No bullet points, no headers, no labels.`;
-          const usr = `Write the incident narrative.\nUnits: ${unitList}\nDispatched by: ${dispatcher}\nLocation: ${whereStr || 'reported location'}\nOn arrival / patient found: ${rawArr}\nChief complaint: ${rawCC}\nHistory (Past/Present): ${rawHx}\nAssessment: ${rawAss}\nTreatment rendered: ${rawTx}\nTransfer of care: ${rawToc}`;
+          const isROC = medOutc === 'roc';
+          const sys = `You are a professional military EMS incident report writer. Format the narrative in exactly 4 blocks separated by a blank line (\\n\\n):\n\nBlock 1 (1 sentence): "[Units] dispatched by [dispatcher] to a medical call at [location]."\nBlock 2 (1 sentence): "Arrived on scene to find [patient description], c/c [chief complaint]."\nBlock 3 (1 flowing paragraph, NO line breaks): ICHART — History, Assessment, and Rendered Care all combined into one paragraph using EMS terminology.\nBlock 4: ${isROC ? '"Patient was ROC."' : '"Crew assisted EMT with patient assessment and loaded the patient to the ambulance.\\n\\nPatient was transported to [destination] by [unit]."'}\n\nRules: past tense, EMS abbreviations (c/c, PMH, AVPU, GCS, VS, BP, HR, RR, SpO2, RA, NRB, IV, ECG). Vitals format: "VS: BP xxx/xx, HR xx, RR xx, SpO2 xx% on RA". Translate Japanese to English. No bullet points, no headers, no labels.`;
+          const usr = `Units: ${unitList}\nDispatched by: ${dispatcher}\nLocation: ${whereStr || 'reported location'}\nPatient found: ${rawArr}\nChief complaint: ${rawCC}\nHistory: ${rawHx}\nAssessment: ${rawAss}\nTreatment: ${rawTx}\nOutcome: ${isROC ? 'ROC' : `Transported to ${rawDest} by ${rawUnit || 'Medic unit'}`}`;
           const ai = await callClaude(sys, usr);
           if (ai) {
             narrative = ai;
           } else {
-            const [arr, cc, hx, ass, treatment, toc] = await Promise.all([tx(rawArr), tx(rawCC), tx(rawHx), tx(rawAss), tx(rawTx), tx(rawToc)]);
-            narrative = buildMedTemplate(unitList, dispatcher, whereStr, arr, cc, hx, ass, treatment, toc);
+            const [arr, cc, hx, ass, tr] = await Promise.all([tx(rawArr), tx(rawCC), tx(rawHx), tx(rawAss), tx(rawTx)]);
+            const [dest, unit] = await Promise.all([tx(rawDest), tx(rawUnit)]);
+            narrative = buildMedTemplate(unitList, dispatcher, whereStr, arr, cc, hx, ass, tr, medOutc, dest, unit);
           }
         } else {
-          const [arr, cc, hx, ass, treatment, toc] = await Promise.all([tx(rawArr), tx(rawCC), tx(rawHx), tx(rawAss), tx(rawTx), tx(rawToc)]);
-          narrative = buildMedTemplate(unitList, dispatcher, whereStr, arr, cc, hx, ass, treatment, toc);
+          const [arr, cc, hx, ass, tr, dest, unit] = await Promise.all([
+            tx(rawArr), tx(rawCC), tx(rawHx), tx(rawAss), tx(rawTx), tx(rawDest), tx(rawUnit)
+          ]);
+          narrative = buildMedTemplate(unitList, dispatcher, whereStr, arr, cc, hx, ass, tr, medOutc, dest, unit);
         }
 
         showReport(units, incType, whenStr, whereStr, narrative);
@@ -808,9 +861,9 @@
       if (freeNarr) {
         narrative = await tx(freeNarr);
       } else if (useAI) {
-        const sys = `You are a professional military fire department incident report writer. Write a concise narrative in past tense using IFSTA/NFPA standard fire service terminology. Use terms like: on-scene, 360-degree survey, nothing showing, working fire, knockdown, overhaul, primary/secondary search, all-clear, utilities isolated, scene secured, companies, apparatus, in-service. If input is in Japanese, translate and rephrase using proper fire service English. Return only the narrative — no headers, no labels, no bullet points.`;
+        const sys = `You are a professional military fire department incident report writer. Format the narrative in blocks separated by a blank line (\\n\\n), matching this style:\n\n"[Units] dispatched by [dispatcher] to a [incident type] at [location]."\n\n"Arrived on scene to find nothing showing after conducting 360 survey." (or relevant condition)\n\n"Upon investigation [finding] was found in [location], caused by [cause]."\n\n"[Actions]. [Unit] returned to station." (or relevant resolution)\n\nRules: past tense, IFSTA/NFPA terminology. Abbreviate fire alarm as "F/Alarm". Use "360 survey" not "360-degree survey". Translate Japanese to English. No bullet points, no headers.`;
         const [arrEx, findD, actEx] = await Promise.all([tx(rawArrEx), tx(rawFindD), tx(rawActEx)]);
-        const usr = `Write the incident narrative.\nUnits: ${unitList}\nDispatched by: ${dispatcher}\nIncident type: ${incType}\nLocation: ${whereStr || 'reported location'}\nArrival conditions: ${arrCond || 'not specified'}${arrEx ? '; ' + arrEx : ''}\nInvestigation finding: ${finding || 'not specified'}${findD ? ' in ' + findD : ''}\nCause: ${cause}\nActions taken: ${actions.length ? actions.join(', ') : 'none specified'}\nAdditional notes: ${actEx || 'none'}\nOutcome: ${outcome}`;
+        const usr = `Units: ${unitList}\nDispatched by: ${dispatcher}\nIncident type: ${incType}\nLocation: ${whereStr || 'reported location'}\nArrival: ${arrCond || 'not specified'}${arrEx ? '; ' + arrEx : ''}\nFinding: ${finding || 'not specified'}${findD ? ' in ' + findD : ''}\nCause: ${cause}\nActions: ${actions.length ? actions.join(', ') : 'none'}\nNotes: ${actEx || 'none'}\nOutcome: ${outcome}`;
         const ai = await callClaude(sys, usr);
         if (ai) {
           narrative = ai;
