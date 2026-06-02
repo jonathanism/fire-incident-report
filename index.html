@@ -163,6 +163,21 @@
     .stats-table .num { text-align: right; font-weight: 700; color: var(--accent); }
     .type-pill { display: inline-block; background: var(--red-dk); color:#fff; font-size:.6rem; font-weight:800; padding:2px 7px; border-radius:3px; letter-spacing:.04em; }
 
+    /* ── Admin Panel ── */
+    .admin-card { background: var(--card); border: 1px solid #2471a3; border-radius: 10px; padding: 18px 20px; margin-bottom: 8px; }
+    .admin-card .chart-title { color: #5dade2; }
+    .member-table { width: 100%; border-collapse: collapse; font-size: .82rem; margin-top: 8px; }
+    .member-table th { background: var(--panel); color: var(--muted); font-size: .68rem; text-transform: uppercase; letter-spacing: .05em; padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border); }
+    .member-table td { padding: 8px 10px; border-bottom: 1px solid rgba(58,63,75,.3); color: var(--text); vertical-align: middle; }
+    .member-table tr:last-child td { border-bottom: none; }
+    .role-badge { display: inline-block; font-size: .62rem; font-weight: 800; padding: 2px 8px; border-radius: 3px; letter-spacing: .05em; }
+    .role-badge.admin  { background: #d4ac0d; color: #000; }
+    .role-badge.member { background: var(--border); color: var(--muted); }
+    .btn-role { background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 5px; padding: 3px 9px; font-size: .72rem; cursor: pointer; transition: all .15s; }
+    .btn-role:hover { border-color: #2471a3; color: #5dade2; }
+    .btn-admin-del { background: none; border: none; color: var(--muted); cursor: pointer; font-size: .9rem; padding: 2px 6px; border-radius: 4px; transition: all .15s; }
+    .btn-admin-del:hover { background: rgba(192,57,43,.2); color: var(--red); }
+
     /* ── Autocomplete ── */
     .ac-wrap { position: relative; }
     .ac-list {
@@ -639,6 +654,22 @@
     </div>
   </div>
 
+  <!-- ADMIN (管理者のみ表示) -->
+  <div id="adminSectionWrap" style="display:none;">
+    <div class="section-label" style="margin-top:28px;">
+      <span class="tag" style="background:#2471a3;">ADMIN</span>
+      <span class="label-text">管理者パネル</span>
+      <span class="line"></span>
+      <button class="history-clear-btn" id="adminToggleBtn" onclick="toggleAdminPanel()">表示</button>
+    </div>
+    <div id="adminPanel" style="display:none;">
+      <div class="admin-card">
+        <div class="chart-title">👥 署員一覧</div>
+        <div id="memberList"><p class="history-empty">読み込み中...</p></div>
+      </div>
+    </div>
+  </div>
+
 </div><!-- .wrapper -->
 
 <footer>Fire Incident Report Generator — For official use by authorized personnel only</footer>
@@ -848,19 +879,79 @@
 
     const { data: existing } = await sb.from('stations').select('id').eq('code', code).maybeSingle();
     let stId = existing?.id;
+    let isNewStation = false;
     if (!stId) {
       const { data: ns } = await sb.from('stations').insert({ name: code, code }).select().single();
       stId = ns?.id;
+      isNewStation = true;
     }
     if (!stId) { currentProfile = profile; return; }
 
+    const assignedRole = isNewStation ? 'admin' : 'member';
     if (profile) {
-      await sb.from('profiles').update({ display_name: dispName, station_id: stId }).eq('id', currentUser.id);
+      await sb.from('profiles').update({ display_name: dispName, station_id: stId, role: assignedRole }).eq('id', currentUser.id);
     } else {
-      await sb.from('profiles').insert({ id: currentUser.id, display_name: dispName, station_id: stId });
+      await sb.from('profiles').insert({ id: currentUser.id, display_name: dispName, station_id: stId, role: assignedRole });
     }
     const { data: p2 } = await sb.from('profiles').select('*, stations(*)').eq('id', currentUser.id).maybeSingle();
     currentProfile = p2;
+  }
+
+  /* ════ ADMIN ════ */
+  let adminVisible = false;
+
+  function toggleAdminPanel() {
+    adminVisible = !adminVisible;
+    document.getElementById('adminPanel').style.display = adminVisible ? '' : 'none';
+    document.getElementById('adminToggleBtn').textContent = adminVisible ? '非表示' : '表示';
+    if (adminVisible) loadMembers();
+  }
+
+  function showAdminSection() {
+    const isAdmin = currentProfile?.role === 'admin';
+    document.getElementById('adminSectionWrap').style.display = isAdmin ? '' : 'none';
+  }
+
+  async function loadMembers() {
+    if (!currentProfile?.station_id) return;
+    const { data: members } = await sb.from('profiles')
+      .select('id, display_name, role, created_at')
+      .eq('station_id', currentProfile.station_id)
+      .order('created_at', { ascending: true });
+
+    const wrap = document.getElementById('memberList');
+    if (!members?.length) { wrap.innerHTML = '<p class="history-empty">署員が見つかりません</p>'; return; }
+
+    const isAdmin = currentProfile.role === 'admin';
+    wrap.innerHTML = `<table class="member-table">
+      <thead><tr><th>名前</th><th>ロール</th><th>登録日</th>${isAdmin ? '<th></th>' : ''}</tr></thead>
+      <tbody>
+      ${members.map(m => {
+        const isMe = m.id === currentUser.id;
+        const d = new Date(m.created_at);
+        const dateStr = `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
+        const roleBadge = `<span class="role-badge ${m.role}">${m.role === 'admin' ? '管理者' : 'メンバー'}</span>`;
+        const actions = isAdmin && !isMe
+          ? (m.role === 'admin'
+              ? `<button class="btn-role" onclick="setRole('${m.id}','member')">メンバーに変更</button>`
+              : `<button class="btn-role" onclick="setRole('${m.id}','admin')">管理者に昇格</button>`)
+          : (isMe ? '<span style="font-size:.7rem;color:var(--muted);">自分</span>' : '');
+        return `<tr>
+          <td>${escHtml(m.display_name || '—')}</td>
+          <td>${roleBadge}</td>
+          <td style="color:var(--muted);font-size:.75rem;">${dateStr}</td>
+          ${isAdmin ? `<td>${actions}</td>` : ''}
+        </tr>`;
+      }).join('')}
+      </tbody>
+    </table>`;
+  }
+
+  async function setRole(userId, newRole) {
+    const label = newRole === 'admin' ? '管理者に昇格' : 'メンバーに変更';
+    if (!confirm(`${label}しますか？`)) return;
+    await sb.from('profiles').update({ role: newRole }).eq('id', userId);
+    loadMembers();
   }
 
   function updateUserBar() {
@@ -881,6 +972,7 @@
       await loadOrCreateProfile();
       hideAuthModal();
       updateUserBar();
+      showAdminSection();
       renderHistory();
     } else {
       showAuthModal();
@@ -891,10 +983,12 @@
         await loadOrCreateProfile();
         hideAuthModal();
         updateUserBar();
+        showAdminSection();
         renderHistory();
       } else if (event === 'SIGNED_OUT') {
         currentUser = null; currentProfile = null;
         updateUserBar();
+        showAdminSection();
         renderHistory();
         showAuthModal();
       }
@@ -1051,7 +1145,7 @@
 
       list.innerHTML = rows.map(r => {
         const sid = 'sb' + r.id.replace(/-/g,'');
-        const canDel = r.user_id === currentUser?.id;
+        const canDel = r.user_id === currentUser?.id || currentProfile?.role === 'admin';
         return `<div class="history-item">
           <div class="history-meta" onclick="toggleHistoryBody('${sid}')">
             <span class="history-badge">${escHtml(r.incident_type)}</span>
