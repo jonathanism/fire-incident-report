@@ -4,223 +4,108 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Fire Incident Report Generator</title>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
   <style>
-    :root {
-      --red:    #c0392b;
-      --red-dk: #922b21;
-      --orange: #e67e22;
-      --bg:     #1a1d23;
-      --panel:  #23272f;
-      --card:   #2c313a;
-      --border: #3a3f4b;
-      --text:   #e8eaf0;
-      --muted:  #8b93a5;
-      --accent: #f0a500;
-      --green:  #27ae60;
-      --blue:   #2980b9;
-    }
+    :root { color-scheme: light; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; background: #f2f4f7; color: #1e2430; min-height: 100vh; font-size: 15px; }
 
-    /* ── Header ── */
     header {
-      background: linear-gradient(135deg, #7b1010, var(--red), var(--orange));
-      padding: 16px 24px;
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      box-shadow: 0 3px 16px rgba(0,0,0,.5);
+      background: linear-gradient(135deg, #7b1010, #c0392b, #e67e22);
+      padding: 16px 20px;
+      display: flex; align-items: center; gap: 12px;
+      box-shadow: 0 3px 12px rgba(0,0,0,.2);
     }
-    header .icon { font-size: 2rem; flex-shrink: 0; }
-    header h1 { font-size: 1.15rem; font-weight: 800; letter-spacing: .04em; color:#fff; }
-    header p  { font-size: .75rem; color: rgba(255,255,255,.75); margin-top:2px; }
-    #userBar { margin-left: auto; display: none; align-items: center; gap: 10px; flex-shrink: 0; }
-    #userBarName    { display: block; font-size: .78rem; font-weight: 700; color: #fff; text-align:right; }
-    #userBarStation { display: block; font-size: .67rem; color: rgba(255,255,255,.6); text-align:right; }
-    .btn-signout { background: rgba(255,255,255,.15); border: none; color: #fff; border-radius: 6px; padding: 6px 12px; font-size: .75rem; font-weight: 700; cursor: pointer; white-space: nowrap; }
-    .btn-signout:hover { background: rgba(255,255,255,.25); }
+    header .icon { font-size: 1.8rem; }
+    header h1 { font-size: 1.05rem; font-weight: 800; color: #fff; letter-spacing: .04em; }
+    header p  { font-size: .72rem; color: rgba(255,255,255,.8); margin-top: 2px; }
 
-    /* ── Layout ── */
-    .wrapper { max-width: 860px; margin: 0 auto; padding: 28px 16px 60px; }
+    .wrapper { max-width: 820px; margin: 0 auto; padding: 20px 14px 50px; }
 
-    /* ── Section label ── */
-    .section-label { display: flex; align-items: center; gap: 10px; margin: 22px 0 10px; }
-    .section-label .tag { background: var(--red); color: #fff; font-size: .7rem; font-weight: 900; letter-spacing: .1em; padding: 3px 10px; border-radius: 4px; }
-    .section-label .label-text { font-size: .82rem; color: var(--muted); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
-    .section-label .line { flex: 1; height: 1px; background: var(--border); }
+    .section-label {
+      display: flex; align-items: center; gap: 9px; margin: 18px 0 8px;
+    }
+    .section-label .tag {
+      background: #c0392b; color: #fff; font-size: .65rem; font-weight: 900;
+      letter-spacing: .1em; padding: 3px 9px; border-radius: 4px;
+    }
+    .section-label .label-text { font-size: .75rem; color: #7a8599; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+    .section-label .line { flex: 1; height: 1px; background: #d5dae5; }
 
-    /* ── Card ── */
-    .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 20px 22px; margin-bottom: 6px; }
+    .card { background: #fff; border: 1px solid #dde2ec; border-radius: 10px; padding: 18px 20px; margin-bottom: 6px; }
 
-    /* ── Form controls ── */
-    .field { margin-bottom: 14px; }
+    .field { margin-bottom: 13px; }
     .field:last-child { margin-bottom: 0; }
-    .field label { display: block; font-size: .73rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; }
-    .field label .ja { font-size: .8rem; color: var(--text); font-weight: 600; text-transform: none; letter-spacing: 0; margin-left: 6px; }
+    .field label { display: block; font-size: .7rem; font-weight: 700; color: #8493ae; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 5px; }
+    .field label .ja { font-size: .8rem; color: #1e2430; font-weight: 600; text-transform: none; letter-spacing: 0; margin-left: 5px; }
+
     input[type="text"], input[type="date"], input[type="time"], select, textarea {
-      width: 100%; background: var(--panel); border: 1.5px solid var(--border); border-radius: 7px;
-      padding: 10px 13px; color: var(--text); font-size: .9rem; font-family: inherit; outline: none;
+      width: 100%; background: #f7f9fc; border: 1.5px solid #d0d7e6;
+      border-radius: 7px; padding: 9px 12px; color: #1e2430;
+      font-size: .88rem; font-family: inherit; outline: none;
       transition: border-color .18s, box-shadow .18s;
     }
-    input:focus, select:focus, textarea:focus { border-color: var(--red); box-shadow: 0 0 0 3px rgba(192,57,43,.18); }
-    textarea { resize: vertical; min-height: 70px; line-height: 1.6; }
-    select option { background: var(--panel); }
-    ::placeholder { color: #555d70; }
-    .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    @media(max-width:500px){ .row2 { grid-template-columns: 1fr; } }
+    input:focus, select:focus, textarea:focus {
+      border-color: #c0392b; box-shadow: 0 0 0 3px rgba(192,57,43,.12); background: #fff;
+    }
+    textarea { resize: vertical; min-height: 68px; line-height: 1.6; }
+    ::placeholder { color: #aab4c8; }
+    .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; }
+    @media(max-width:480px){ .row2 { grid-template-columns: 1fr; } }
 
-    /* ── Steps ── */
     .steps { display: flex; flex-direction: column; gap: 10px; }
-    .step { display: grid; grid-template-columns: 36px 1fr; gap: 12px; align-items: start; }
-    .step-num { width: 36px; height: 36px; background: var(--red); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: .75rem; font-weight: 900; color: #fff; flex-shrink: 0; margin-top: 28px; }
-    .step-body { flex: 1; }
-    .tag-hint { font-size: .7rem; color: var(--muted); margin-top: 4px; }
+    .step { display: grid; grid-template-columns: 32px 1fr; gap: 12px; align-items: start; }
+    .step-num {
+      width: 32px; height: 32px; background: #c0392b; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .7rem; font-weight: 900; color: #fff; margin-top: 26px; flex-shrink: 0;
+    }
 
-    /* ── Generate btn ── */
+    .btn-add-action {
+      background: none; border: 1.5px dashed #c0d0e0; color: #8493ae;
+      padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: .78rem;
+      margin-top: 5px; transition: border-color .15s, color .15s;
+    }
+    .btn-add-action:hover { border-color: #c0392b; color: #c0392b; }
+    .action-row { display: flex; gap: 8px; margin-bottom: 7px; }
+    .action-row select { flex: 1; }
+    .btn-rm { background: #fce8e6; border: none; color: #c0392b; border-radius: 6px; padding: 0 10px; cursor: pointer; font-size: 1rem; }
+
+    .free-tag { background: #2980b9; }
+
     #generateBtn {
-      width: 100%; padding: 16px; margin-top: 22px;
-      background: linear-gradient(135deg, var(--red-dk), var(--red), #e74c3c);
-      color: #fff; border: none; border-radius: 10px; font-size: 1rem; font-weight: 800;
-      letter-spacing: .06em; cursor: pointer; box-shadow: 0 4px 18px rgba(192,57,43,.4);
+      width: 100%; padding: 15px; margin-top: 20px;
+      background: linear-gradient(135deg, #922b21, #c0392b);
+      color: #fff; border: none; border-radius: 10px;
+      font-size: .95rem; font-weight: 800; letter-spacing: .05em;
+      cursor: pointer; box-shadow: 0 4px 16px rgba(192,57,43,.3);
       transition: transform .15s, box-shadow .15s; text-transform: uppercase;
     }
-    #generateBtn:hover { transform: translateY(-2px); box-shadow: 0 6px 22px rgba(192,57,43,.55); }
-    #generateBtn:active { transform: translateY(0); }
+    #generateBtn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(192,57,43,.42); }
+    #generateBtn:active { transform: none; }
 
-    /* ── Report output ── */
-    #reportSection { display: none; margin-top: 28px; }
+    #reportSection { display: none; margin-top: 24px; }
     #reportSection.visible { display: block; }
-    .report-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px; }
-    .report-title { font-size: .8rem; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: .08em; }
+    .report-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px; }
+    .report-title { font-size: .75rem; font-weight: 800; color: #c0392b; text-transform: uppercase; letter-spacing: .08em; }
     .toolbar-btns { display: flex; gap: 8px; }
-    .btn-copy, .btn-clear { padding: 8px 16px; border-radius: 6px; font-size: .8rem; font-weight: 700; cursor: pointer; border: none; transition: background .15s; }
-    .btn-copy  { background: var(--green); color: #fff; }
-    .btn-copy:hover { background: #1f9549; }
+    .btn-copy, .btn-clear {
+      padding: 7px 15px; border-radius: 6px; font-size: .78rem; font-weight: 700; cursor: pointer; border: none;
+    }
+    .btn-copy { background: #27ae60; color: #fff; }
+    .btn-copy:hover { background: #1e9149; }
     .btn-copy.copied { background: #145a32; }
-    .btn-clear { background: var(--border); color: var(--muted); }
-    .btn-clear:hover { background: #4a5060; color: var(--text); }
-    #reportBox { background: #0e1117; border: 1px solid #2a3040; border-radius: 10px; padding: 22px 26px; font-family: 'Courier New', 'Lucida Console', monospace; font-size: .87rem; line-height: 1.9; white-space: pre-wrap; word-break: break-word; color: #c9d8f0; box-shadow: inset 0 2px 12px rgba(0,0,0,.4); }
-    .req { color: var(--red); margin-left: 2px; }
-    footer { text-align: center; font-size: .72rem; color: #3a4050; padding: 24px; }
+    .btn-clear { background: #e8ecf3; color: #7a8599; }
+    .btn-clear:hover { background: #d0d7e6; }
 
-    /* ── History ── */
-    .history-empty { color: var(--muted); font-size: .82rem; text-align: center; padding: 20px 0; }
-    .history-item { background: var(--card); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 6px; overflow: hidden; }
-    .history-meta { display: flex; align-items: center; gap: 10px; padding: 11px 14px; cursor: pointer; transition: background .15s; user-select: none; }
-    .history-meta:hover { background: rgba(255,255,255,.04); }
-    .history-badge { background: var(--red-dk); color: #fff; font-size: .62rem; font-weight: 800; padding: 3px 8px; border-radius: 4px; letter-spacing: .06em; white-space: nowrap; flex-shrink: 0; }
-    .history-info { flex: 1; min-width: 0; }
-    .history-when  { display: block; font-size: .72rem; color: var(--muted); }
-    .history-where { display: block; font-size: .82rem; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .history-del { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 1rem; padding: 4px 6px; border-radius: 4px; transition: background .15s, color .15s; flex-shrink: 0; }
-    .history-del:hover { background: rgba(192,57,43,.2); color: var(--red); }
-    .history-chevron { color: var(--muted); font-size: .8rem; flex-shrink: 0; }
-    .history-body { border-top: 1px solid var(--border); padding: 14px; display: none; }
-    .history-body.open { display: block; }
-    .history-text { background: #0e1117; border-radius: 8px; padding: 14px; font-family: 'Courier New', monospace; font-size: .82rem; line-height: 1.8; white-space: pre-wrap; word-break: break-word; color: #c9d8f0; margin-bottom: 10px; }
-    .btn-copy-hist { background: var(--green); color: #fff; border: none; border-radius: 6px; padding: 7px 14px; font-size: .8rem; font-weight: 700; cursor: pointer; transition: background .15s; }
-    .btn-copy-hist:hover { background: #1f9549; }
-    .history-clear-btn { background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 5px; padding: 3px 10px; font-size: .72rem; cursor: pointer; transition: all .15s; }
-    .history-clear-btn:hover { border-color: var(--red); color: var(--red); }
-
-    /* ── Auth Modal ── */
-    #authModal { position: fixed; inset: 0; background: rgba(0,0,0,.9); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 16px; }
-    #authModal.hidden { display: none; }
-    .auth-panel { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 32px 28px; width: 100%; max-width: 380px; box-shadow: 0 20px 60px rgba(0,0,0,.7); }
-    .auth-icon  { font-size: 2rem; margin-bottom: 8px; }
-    .auth-title { font-size: 1.05rem; font-weight: 800; color: var(--text); }
-    .auth-sub   { font-size: .78rem; color: var(--muted); margin: 4px 0 20px; }
-    .auth-field { margin-bottom: 12px; }
-    .auth-field label { display: block; font-size: .72rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 5px; }
-    .auth-field input { width: 100%; background: var(--card); border: 1.5px solid var(--border); border-radius: 7px; padding: 10px 13px; color: var(--text); font-size: .9rem; font-family: inherit; outline: none; transition: border-color .18s; }
-    .auth-field input:focus { border-color: var(--red); }
-    .auth-btn { width: 100%; padding: 13px; background: linear-gradient(135deg, var(--red-dk), var(--red)); color: #fff; border: none; border-radius: 8px; font-size: .95rem; font-weight: 800; cursor: pointer; margin-top: 6px; transition: opacity .15s; }
-    .auth-btn:hover { opacity: .9; }
-    .auth-btn:disabled { opacity: .5; cursor: not-allowed; }
-    .auth-switch { font-size: .8rem; color: var(--muted); text-align: center; margin-top: 16px; }
-    .auth-switch a { color: var(--accent); cursor: pointer; text-decoration: underline; }
-    .auth-msg { border-radius: 6px; padding: 9px 12px; font-size: .8rem; margin-bottom: 12px; display: none; }
-    .auth-msg.err { background: rgba(192,57,43,.2); border: 1px solid var(--red); color: #e88; }
-    .auth-msg.ok  { background: rgba(39,174,96,.2);  border: 1px solid var(--green); color: #6d8; }
-
-    /* ── Stats ── */
-    .stats-cards { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-bottom: 10px; }
-    .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px 14px; text-align: center; }
-    .stat-num { font-size: 2rem; font-weight: 900; color: var(--accent); line-height: 1; }
-    .stat-label { font-size: .7rem; color: var(--muted); margin-top: 6px; text-transform: uppercase; letter-spacing: .05em; }
-    .stat-card.highlight { border-color: var(--accent); background: rgba(240,165,0,.07); }
-    .stats-chart-row { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; margin-bottom: 10px; }
-    @media(max-width:600px){ .stats-cards { grid-template-columns: repeat(3,1fr); } .stats-chart-row { grid-template-columns: 1fr; } }
-    .chart-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
-    .chart-title { font-size: .72rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 12px; }
-    .stats-table { width: 100%; border-collapse: collapse; font-size: .8rem; }
-    .stats-table th { background: var(--panel); color: var(--muted); font-size: .68rem; text-transform: uppercase; letter-spacing: .05em; padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border); }
-    .stats-table td { padding: 7px 10px; border-bottom: 1px solid rgba(58,63,75,.4); color: var(--text); }
-    .stats-table tr:last-child td { border-bottom: none; }
-    .stats-table tr:hover td { background: rgba(255,255,255,.03); }
-    .stats-table .num { text-align: right; font-weight: 700; color: var(--accent); }
-    .type-pill { display: inline-block; background: var(--red-dk); color:#fff; font-size:.6rem; font-weight:800; padding:2px 7px; border-radius:3px; letter-spacing:.04em; }
-
-    /* ── Admin Panel ── */
-    .admin-card { background: var(--card); border: 1px solid #2471a3; border-radius: 10px; padding: 18px 20px; margin-bottom: 8px; }
-    .admin-card .chart-title { color: #5dade2; }
-    .member-table { width: 100%; border-collapse: collapse; font-size: .82rem; margin-top: 8px; }
-    .member-table th { background: var(--panel); color: var(--muted); font-size: .68rem; text-transform: uppercase; letter-spacing: .05em; padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border); }
-    .member-table td { padding: 8px 10px; border-bottom: 1px solid rgba(58,63,75,.3); color: var(--text); vertical-align: middle; }
-    .member-table tr:last-child td { border-bottom: none; }
-    .role-badge { display: inline-block; font-size: .62rem; font-weight: 800; padding: 2px 8px; border-radius: 3px; letter-spacing: .05em; }
-    .role-badge.admin  { background: #d4ac0d; color: #000; }
-    .role-badge.member { background: var(--border); color: var(--muted); }
-    .btn-role { background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 5px; padding: 3px 9px; font-size: .72rem; cursor: pointer; transition: all .15s; }
-    .btn-role:hover { border-color: #2471a3; color: #5dade2; }
-    .btn-admin-del { background: none; border: none; color: var(--muted); cursor: pointer; font-size: .9rem; padding: 2px 6px; border-radius: 4px; transition: all .15s; }
-    .btn-admin-del:hover { background: rgba(192,57,43,.2); color: var(--red); }
-
-    /* ── Autocomplete ── */
-    .ac-wrap { position: relative; }
-    .ac-list {
-      position: absolute; top: calc(100% + 3px); left: 0; right: 0;
-      background: var(--panel); border: 1.5px solid var(--red);
-      border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,.5);
-      max-height: 220px; overflow-y: auto; z-index: 400; display: none;
+    #reportBox {
+      background: #111827; border: 1px solid #1e293b; border-radius: 10px;
+      padding: 20px 24px; font-family: 'Courier New', monospace;
+      font-size: .85rem; line-height: 1.9; white-space: pre-wrap;
+      word-break: break-word; color: #c9d8f0;
     }
-    .ac-list.open { display: block; }
-    .ac-item {
-      padding: 10px 14px; font-size: .88rem; cursor: pointer;
-      color: var(--text); border-bottom: 1px solid rgba(58,63,75,.3);
-      transition: background .1s;
-    }
-    .ac-item:last-child { border-bottom: none; }
-    .ac-item:hover, .ac-item.sel { background: rgba(192,57,43,.25); }
-    .ac-item strong { color: var(--accent); font-weight: 800; }
 
-    /* ── Mobile ── */
-    @media (max-width: 640px) {
-      header { padding: 10px 12px; gap: 8px; }
-      header .icon { font-size: 1.4rem; }
-      header h1 { font-size: .85rem; }
-      header p  { font-size: .66rem; }
-      #userBarName { font-size: .7rem; }
-      #userBarStation { font-size: .6rem; }
-      .btn-signout { padding: 4px 8px; font-size: .68rem; }
-      .wrapper { padding: 14px 10px 100px; }
-      .card { padding: 14px 12px; }
-      .section-label { margin: 14px 0 7px; }
-      .section-label .label-text { font-size: .75rem; }
-      input[type="text"], input[type="date"], input[type="time"], select, textarea { font-size: 1rem; min-height: 44px; padding: 10px 12px; }
-      textarea { min-height: 72px; }
-      .step { grid-template-columns: 26px 1fr; gap: 8px; }
-      .step-num { width: 26px; height: 26px; font-size: .62rem; margin-top: 22px; }
-      #generateBtn { position: fixed; bottom: 0; left: 0; right: 0; border-radius: 0; margin: 0; padding: 18px 16px; font-size: .95rem; z-index: 200; box-shadow: 0 -4px 24px rgba(192,57,43,.55); }
-      #reportSection { margin-top: 20px; }
-      #reportBox { padding: 14px 12px; font-size: .78rem; line-height: 1.75; }
-      .btn-copy, .btn-clear { padding: 10px 16px; font-size: .82rem; min-height: 40px; }
-      #apiSaveBtn { padding: 10px 14px; font-size: .82rem; }
-      .tag-hint { font-size: .69rem; }
-      .auth-panel { padding: 24px 18px; }
-    }
+    .req { color: #c0392b; }
+    footer { text-align: center; font-size: .68rem; color: #aab4c8; padding: 20px; }
   </style>
 </head>
 <body>
@@ -229,14 +114,7 @@
   <div class="icon">🚒</div>
   <div>
     <h1>FIRE INCIDENT REPORT GENERATOR</h1>
-    <p>日本語で入力 → 英文インシデントレポートを自動生成</p>
-  </div>
-  <div id="userBar">
-    <div>
-      <span id="userBarName"></span>
-      <span id="userBarStation"></span>
-    </div>
-    <button class="btn-signout" onclick="doSignOut()">ログアウト</button>
+    <p>日本語で入力 → 英文 5W インシデントレポートを自動生成</p>
   </div>
 </header>
 
@@ -251,12 +129,11 @@
   <div class="card">
     <div class="field">
       <label>出動部隊 <span class="ja">Responding Units</span> <span class="req">*</span></label>
-      <input type="text" id="units" placeholder="例: E-11, L-1　／　カンマで複数入力"/>
-      <div class="tag-hint">例: E-11, L-1, BC-2</div>
+      <input type="text" id="units" placeholder="例: E-11, L-1"/>
     </div>
     <div class="field">
       <label>指令センター <span class="ja">Dispatched by</span></label>
-      <input type="text" id="dispatcher" placeholder="例: Butler Fire, Camp Foster Fire Dept"/>
+      <input type="text" id="dispatcher" placeholder="例: Butler Fire"/>
     </div>
   </div>
 
@@ -272,35 +149,35 @@
         <label>種別 <span class="ja">Incident Type</span> <span class="req">*</span></label>
         <select id="incidentType">
           <option value="">選択...</option>
-          <optgroup label="メディカル">
-            <option value="MEDICAL EMERGENCY">医療緊急 / Medical Emergency</option>
+          <optgroup label="火災">
+            <option value="STRUCTURE FIRE">建物火災</option>
+            <option value="VEHICLE FIRE">車両火災</option>
+            <option value="WILDLAND FIRE">山林火災</option>
+            <option value="ELECTRICAL FIRE">電気火災</option>
           </optgroup>
-          <optgroup label="警報">
-            <option value="FIRE ALARM">火災警報 / Fire Alarm</option>
-            <option value="TROUBLE ALARM">トラブル警報 / Trouble Alarm</option>
-            <option value="SUPERVISORY ALARM">監視警報 / Supervisory Alarm</option>
-            <option value="CARBON MONOXIDE ALARM">CO警報 / CO Alarm</option>
-            <option value="FALSE ALARM">誤報 / False Alarm</option>
+          <optgroup label="警報・調査">
+            <option value="FIRE ALARM">火災報知器 / Fire Alarm</option>
+            <option value="SMOKE INVESTIGATION">煙調査</option>
+            <option value="CARBON MONOXIDE ALARM">CO警報</option>
+            <option value="FALSE ALARM">誤報</option>
           </optgroup>
-          <optgroup label="MVA">
-            <option value="VEHICLE ACCIDENT">交通事故 / Vehicle Accident</option>
-          </optgroup>
-          <optgroup label="その他">
-            <option value="STRUCTURE FIRE">建物火災 / Structure Fire</option>
-            <option value="VEHICLE FIRE">車両火災 / Vehicle Fire</option>
-            <option value="WILDLAND FIRE">山林火災 / Wildland Fire</option>
-            <option value="ELECTRICAL FIRE">電気火災 / Electrical Fire</option>
-            <option value="SMOKE INVESTIGATION">煙調査 / Smoke Investigation</option>
-            <option value="HAZMAT INCIDENT">危険物 / Hazmat Incident</option>
-            <option value="GAS LEAK">ガス漏れ / Gas Leak</option>
-            <option value="MUTUAL AID">相互援助 / Mutual Aid</option>
+          <optgroup label="救急・その他">
+            <option value="MEDICAL EMERGENCY">医療緊急</option>
+            <option value="HAZMAT INCIDENT">危険物</option>
+            <option value="GAS LEAK">ガス漏れ</option>
+            <option value="VEHICLE ACCIDENT">交通事故</option>
+            <option value="MUTUAL AID">相互援助</option>
           </optgroup>
         </select>
       </div>
       <div class="field">
-        <label>カスタム種別 <span class="ja">Custom (任意)</span></label>
-        <input type="text" id="incidentTypeCustom" placeholder="上記以外の場合に入力"/>
+        <label>カスタム <span class="ja">Custom Type（任意）</span></label>
+        <input type="text" id="incidentTypeCustom" placeholder="上記以外の場合"/>
       </div>
+    </div>
+    <div class="field">
+      <label>建物・施設 <span class="ja">Building / Facility</span></label>
+      <input type="text" id="building" placeholder="例: BLDG#320"/>
     </div>
   </div>
 
@@ -319,9 +196,9 @@
       <div class="field">
         <label>タイムゾーン <span class="ja">Timezone</span></label>
         <select id="timezone">
-          <option value="JST">JST（日本標準時）</option>
+          <option value="JST">JST</option>
           <option value="LOCAL">LOCAL</option>
-          <option value="ZULU">ZULU（UTC）</option>
+          <option value="ZULU">ZULU</option>
           <option value="EST">EST</option>
           <option value="PST">PST</option>
         </select>
@@ -342,11 +219,11 @@
   <div class="card">
     <div class="field">
       <label>基地・施設名 <span class="ja">Installation / Base</span></label>
-      <input type="text" id="base" placeholder="例: CAMP FOSTER, MCAS FUTENMA, CAMP HANSEN"/>
+      <input type="text" id="base" placeholder="例: CAMP FOSTER"/>
     </div>
     <div class="field">
       <label>詳細場所 <span class="ja">Specific Location</span></label>
-      <input type="text" id="locationDetail" placeholder="例: Room#302, 2nd Floor, North Wing"/>
+      <input type="text" id="locationDetail" placeholder="例: Room#302, 2nd Floor"/>
     </div>
   </div>
 
@@ -357,9 +234,7 @@
     <span class="line"></span>
   </div>
   <div class="card">
-
-    <!-- Fire steps -->
-    <div id="fireSteps" class="steps">
+    <div class="steps">
 
       <div class="step">
         <div class="step-num">1</div>
@@ -379,7 +254,7 @@
             </select>
           </div>
           <div class="field">
-            <label>補足 <span class="ja">Additional notes (任意)</span></label>
+            <label>補足 <span class="ja">Additional notes（任意）</span></label>
             <input type="text" id="arrivalExtra" placeholder="例: bystanders reported smoke on 3rd floor"/>
           </div>
         </div>
@@ -397,7 +272,7 @@
               <option value="sprinkler activation">スプリンクラーの作動</option>
               <option value="burnt food/cooking odor, no fire">焦げ臭・調理臭（火災なし）</option>
               <option value="extinguished fire prior to arrival">到着前に鎮火済み</option>
-              <option value="active fire on the __FLOOR__ floor">現場に活火</option>
+              <option value="active fire on the floor">現場に活火</option>
               <option value="no evidence of fire or smoke">煙・火災の痕跡なし</option>
               <option value="gas leak detected">ガス漏れ検知</option>
               <option value="CO levels elevated">CO濃度上昇</option>
@@ -406,7 +281,7 @@
           </div>
           <div class="field">
             <label>場所・詳細 <span class="ja">Location / Detail</span></label>
-            <input type="text" id="findingDetail" placeholder="例: room#302, kitchen area, 2nd floor hallway"/>
+            <input type="text" id="findingDetail" placeholder="例: room#302, kitchen area"/>
           </div>
           <div class="field">
             <label>原因 <span class="ja">Cause</span></label>
@@ -431,27 +306,28 @@
           <div class="field">
             <label>実施した措置 <span class="ja">Actions Taken</span> <span class="req">*</span></label>
             <div id="actionsContainer">
-              <select class="action-select" style="margin-bottom:8px;">
-                <option value="">選択...</option>
-                <option value="System reset completed">システムリセット完了</option>
-                <option value="Placed in silence position">リセット不可・サイレンスポジション</option>
-                <option value="Fire suppressed using 1¾-inch hose line">1¾インチホースで鎮火</option>
-                <option value="Ventilation conducted">換気実施</option>
-                <option value="Building evacuated">建物避難完了</option>
-                <option value="Utilities isolated (gas/electric)">ガス・電気遮断</option>
-                <option value="CO levels cleared">CO濃度正常確認</option>
-                <option value="Area ventilated and monitored">エリア換気・監視</option>
-                <option value="Overhaul conducted">オーバーホール実施</option>
-                <option value="Patient treated and transported">傷病者処置・搬送</option>
-                <option value="No action required">措置不要</option>
-                <option value="Turned over to civilian authorities">民間当局へ引き渡し</option>
-              </select>
+              <div class="action-row">
+                <select class="action-select">
+                  <option value="">選択...</option>
+                  <option value="System reset completed">システムリセット完了</option>
+                  <option value="Fire suppressed using 1¾-inch hose line">1¾インチホースで鎮火</option>
+                  <option value="Ventilation conducted">換気実施</option>
+                  <option value="Building evacuated">建物避難完了</option>
+                  <option value="Utilities isolated (gas/electric)">ガス・電気遮断</option>
+                  <option value="CO levels cleared">CO濃度正常確認</option>
+                  <option value="Area ventilated and monitored">エリア換気・監視</option>
+                  <option value="Overhaul conducted">オーバーホール実施</option>
+                  <option value="Patient treated and transported">傷病者処置・搬送</option>
+                  <option value="No action required">措置不要</option>
+                  <option value="Turned over to civilian authorities">民間当局へ引き渡し</option>
+                </select>
+              </div>
             </div>
-            <button type="button" onclick="addAction()" style="background:none;border:1px dashed var(--border);color:var(--muted);padding:6px 14px;border-radius:6px;cursor:pointer;font-size:.8rem;margin-top:4px;">＋ 措置を追加</button>
+            <button type="button" class="btn-add-action" onclick="addAction()">＋ 措置を追加</button>
           </div>
           <div class="field">
-            <label>補足措置・備考 <span class="ja">Additional Actions / Notes</span></label>
-            <textarea id="actionsExtra" rows="2" placeholder="例: Contacted facility manager. No injuries reported."></textarea>
+            <label>補足・備考 <span class="ja">Additional Notes</span></label>
+            <textarea id="actionsExtra" rows="2" placeholder="例: No injuries reported. Facility manager notified."></textarea>
           </div>
         </div>
       </div>
@@ -461,141 +337,36 @@
         <div class="step-body">
           <div class="field">
             <label>結末 <span class="ja">Outcome / Resolution</span></label>
-            <select id="outcome" onchange="toggleServiceTicket()">
+            <select id="outcome">
               <option value="returned to station">部隊帰還</option>
-              <option value="service_ticket">サービスチケット依頼 / Requested service ticket</option>
-              <option value="scene secured and handed over to MP">MPへ引き渡し</option>
-              <option value="patient transported to naval hospital">傷病者を海軍病院へ搬送</option>
-              <option value="turned over to civilian fire department">民間消防へ引き渡し</option>
               <option value="remained on scene for overhaul">オーバーホールのため現場残留</option>
-            </select>
-            <div id="serviceTicketField" style="display:none; margin-top:8px;">
-              <label style="font-size:.73rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">依頼先 <span style="font-size:.8rem;color:var(--text);font-weight:600;text-transform:none;letter-spacing:0;margin-left:6px;">Service ticket to</span></label>
-              <select id="serviceTicketDest" style="margin-top:6px;">
-                <option value="G-F">G-F</option>
-                <option value="Kadena CE">Kadena CE</option>
-              </select>
-            </div>
-          </div>
-        </div>
-      </div>
-
-    </div><!-- #fireSteps -->
-
-    <!-- Medical steps -->
-    <div id="medicalSteps" class="steps" style="display:none">
-
-      <div class="step">
-        <div class="step-num">1</div>
-        <div class="step-body">
-          <div class="field">
-            <label>到着時の患者状況 <span class="ja">Arrived on scene to find</span> <span class="req">*</span></label>
-            <input type="text" id="medArrival" placeholder="例: 24 y/o male, sitting on the chair"/>
-          </div>
-        </div>
-      </div>
-
-      <div class="step">
-        <div class="step-num">2</div>
-        <div class="step-body">
-          <div class="field">
-            <label>主訴 <span class="ja">Chief complaint of</span></label>
-            <input type="text" id="medCC" placeholder="例: chest pain, shortness of breath"/>
-          </div>
-        </div>
-      </div>
-
-      <div class="step">
-        <div class="step-num">3</div>
-        <div class="step-body">
-          <div class="field">
-            <label>既往歴・現病歴 <span class="ja">History (Past / Present)</span></label>
-            <textarea id="medHistory" rows="3" placeholder="例: No significant PMH. Onset of chest pain 30 min prior to arrival."></textarea>
-          </div>
-        </div>
-      </div>
-
-      <div class="step">
-        <div class="step-num">4</div>
-        <div class="step-body">
-          <div class="field">
-            <label>評価 <span class="ja">Assessment</span></label>
-            <textarea id="medAssessment" rows="3" placeholder="例: VS: BP 130/80, HR 88, RR 16, SpO2 98% on RA, GCS 15."></textarea>
-          </div>
-        </div>
-      </div>
-
-      <div class="step">
-        <div class="step-num">5</div>
-        <div class="step-body">
-          <div class="field">
-            <label>処置・治療 <span class="ja">Rendered care / Treatment</span></label>
-            <textarea id="medTreatment" rows="3" placeholder="例: O2 via NRB mask at 15 LPM. IV access established in right AC."></textarea>
-          </div>
-        </div>
-      </div>
-
-      <div class="step">
-        <div class="step-num">6</div>
-        <div class="step-body">
-          <div class="field">
-            <label>搬送結果 <span class="ja">Patient Outcome</span></label>
-            <select id="medOutcome" onchange="toggleMedTransport()">
-              <option value="transported">搬送 / Transported to hospital</option>
-              <option value="roc">拒否 / ROC (Refusal of Care)</option>
+              <option value="turned over to civilian fire department">民間消防へ引き渡し</option>
+              <option value="patient transported to naval hospital">傷病者を海軍病院へ搬送</option>
+              <option value="scene secured and handed over to MP">MPへ引き渡し</option>
             </select>
           </div>
-          <div id="medTransportFields">
-            <div class="row2">
-              <div class="field">
-                <label>搬送先 <span class="ja">Transported to</span></label>
-                <input type="text" id="medTransferDest" placeholder="例: USNH Okinawa"/>
-              </div>
-              <div class="field">
-                <label>搬送ユニット <span class="ja">Transport unit</span></label>
-                <input type="text" id="medTransferUnit" placeholder="例: Medic-1"/>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
 
-    </div><!-- #medicalSteps -->
+    </div>
   </div>
 
   <!-- FREE -->
-  <div class="section-label" style="margin-top:22px;">
-    <span class="tag" style="background:var(--blue)">FREE</span>
+  <div class="section-label" style="margin-top:18px;">
+    <span class="tag free-tag">FREE</span>
     <span class="label-text">フリーナラティブ（任意上書き）</span>
     <span class="line"></span>
   </div>
   <div class="card">
     <div class="field">
-      <label>WHYを自由記述で上書き <span class="ja">Override narrative (英語または日本語)</span></label>
-      <textarea id="freeNarrative" rows="4" placeholder="ここに英語または日本語で直接入力するとWHY部分をそのまま使用します（空欄の場合は上のステップから自動生成）"></textarea>
-    </div>
-  </div>
-
-  <!-- AI -->
-  <div class="section-label" style="margin-top:22px;">
-    <span class="tag" style="background:var(--blue)">AI</span>
-    <span class="label-text">Claude API Key（専門用語AI生成）</span>
-    <span class="line"></span>
-  </div>
-  <div class="card">
-    <div class="field">
-      <label>Anthropic API Key <span class="ja">（任意・ブラウザ内保存）</span></label>
-      <div style="display:flex;gap:8px;align-items:center;">
-        <input type="password" id="claudeApiKey" placeholder="sk-ant-..." style="flex:1"/>
-        <button id="apiSaveBtn" onclick="saveApiKey()" style="background:var(--blue);border:none;color:#fff;border-radius:7px;padding:10px 16px;cursor:pointer;font-weight:700;white-space:nowrap;font-size:.85rem;">保存</button>
-      </div>
-      <div class="tag-hint">入力するとIFSTA・EMS専門用語でAIがナラティブを自動生成します。空欄の場合はテンプレート＋翻訳。</div>
+      <label>WHYを自由記述で上書き <span class="ja">Override narrative</span></label>
+      <textarea id="freeNarrative" rows="4" placeholder="ここに英語で直接入力するとWHY部分をそのまま使用します（空欄の場合は上のステップから自動生成）"></textarea>
     </div>
   </div>
 
   <button id="generateBtn" onclick="generateReport()">🔥 GENERATE INCIDENT REPORT</button>
 
-  <!-- Report Output -->
+  <!-- Output -->
   <div id="reportSection">
     <div class="report-header">
       <span class="report-title">⚡ Generated Report</span>
@@ -607,893 +378,129 @@
     <div id="reportBox"></div>
   </div>
 
-  <!-- History -->
-  <div class="section-label" style="margin-top:28px;">
-    <span class="tag" style="background:#3a4050;">HISTORY</span>
-    <span class="label-text">署のレポート履歴</span>
-    <span class="line"></span>
-    <button class="history-clear-btn" onclick="clearAllHistory()">自分の履歴を削除</button>
-  </div>
-  <div id="historyList"></div>
-
-  <!-- STATS -->
-  <div class="section-label" style="margin-top:28px;">
-    <span class="tag" style="background:#6c3483;">STATS</span>
-    <span class="label-text">月次集計</span>
-    <span class="line"></span>
-    <button class="history-clear-btn" id="statsToggleBtn" onclick="toggleStats()">表示</button>
-  </div>
-  <div id="statsSection" style="display:none;">
-    <div class="stats-cards">
-      <div class="stat-card highlight">
-        <div class="stat-num" id="statThisMonth">—</div>
-        <div class="stat-label">今月</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-num" id="statLastMonth">—</div>
-        <div class="stat-label">先月</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-num" id="statTotal">—</div>
-        <div class="stat-label">累計</div>
-      </div>
-    </div>
-    <div class="stats-chart-row">
-      <div class="chart-card">
-        <div class="chart-title">📊 月別出動件数（過去6ヶ月）</div>
-        <canvas id="monthlyChart"></canvas>
-      </div>
-      <div class="chart-card">
-        <div class="chart-title">🍩 種別内訳</div>
-        <canvas id="typeChart"></canvas>
-      </div>
-    </div>
-    <div class="chart-card">
-      <div class="chart-title">📋 月別詳細テーブル</div>
-      <div id="statsTableWrap"></div>
-    </div>
-  </div>
-
-  <!-- ADMIN (管理者のみ表示) -->
-  <div id="adminSectionWrap" style="display:none;">
-    <div class="section-label" style="margin-top:28px;">
-      <span class="tag" style="background:#2471a3;">ADMIN</span>
-      <span class="label-text">管理者パネル</span>
-      <span class="line"></span>
-      <button class="history-clear-btn" id="adminToggleBtn" onclick="toggleAdminPanel()">表示</button>
-    </div>
-    <div id="adminPanel" style="display:none;">
-      <div class="admin-card">
-        <div class="chart-title">👥 署員一覧</div>
-        <div id="memberList"><p class="history-empty">読み込み中...</p></div>
-      </div>
-    </div>
-  </div>
-
-</div><!-- .wrapper -->
-
-<footer>Fire Incident Report Generator — For official use by authorized personnel only</footer>
-
-<!-- Auth Modal -->
-<div id="authModal">
-  <!-- Login pane -->
-  <div class="auth-panel" id="loginPane">
-    <div class="auth-icon">🔥</div>
-    <div class="auth-title">Fire Incident Report</div>
-    <div class="auth-sub">ログインして署のレポートを管理</div>
-    <div class="auth-msg err" id="loginErr"></div>
-    <div class="auth-field">
-      <label>メールアドレス</label>
-      <input type="email" id="loginEmail" placeholder="email@example.com"/>
-    </div>
-    <div class="auth-field">
-      <label>パスワード</label>
-      <input type="password" id="loginPassword" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"/>
-    </div>
-    <button class="auth-btn" id="loginBtn" onclick="doLogin()">ログイン</button>
-    <div class="auth-switch">アカウントがない場合は <a onclick="showPane('signup')">新規登録</a></div>
-  </div>
-
-  <!-- Signup pane -->
-  <div class="auth-panel" id="signupPane" style="display:none;">
-    <div class="auth-icon">🔥</div>
-    <div class="auth-title">アカウント作成</div>
-    <div class="auth-sub">署コードで新しい署を作成、または既存の署に参加</div>
-    <div class="auth-msg err" id="signupErr"></div>
-    <div class="auth-msg ok"  id="signupOk"></div>
-    <div class="auth-field">
-      <label>名前 / Display Name</label>
-      <input type="text" id="signupName" placeholder="例: Tanaka Jiro"/>
-    </div>
-    <div class="auth-field">
-      <label>メールアドレス</label>
-      <input type="email" id="signupEmail" placeholder="email@example.com"/>
-    </div>
-    <div class="auth-field">
-      <label>パスワード（6文字以上）</label>
-      <input type="password" id="signupPassword" placeholder="••••••••"/>
-    </div>
-    <div class="auth-field">
-      <label>署コード Station Code</label>
-      <input type="text" id="signupCode" placeholder="例: CF-FIRE　（新コード＝新しい署を作成）" oninput="this.value=this.value.toUpperCase()"/>
-      <div style="font-size:.69rem;color:var(--muted);margin-top:4px;">新しいコード → 新しい署を作成 / 既存コード → その署に参加</div>
-    </div>
-    <button class="auth-btn" id="signupBtn" onclick="doSignup()">アカウント作成</button>
-    <div class="auth-switch">すでにアカウントがある場合は <a onclick="showPane('login')">ログイン</a></div>
-  </div>
 </div>
 
+<footer>Fire Incident Report Generator — For training / drill use only</footer>
+
 <script>
-  /* ════ AUTOCOMPLETE DATA ════ */
-  const AC_UNITS = [
-    'E-11','L-1','MED-1','E-21','L-2','E-22','MED-2','HAZ-2',
-    'E-31','E-32','MED-3','RES-1','RES-2','E-41','E-42','MED-4',
-    'E-51','MED-5','E-61','E-62','L-6','HAZ-6','E-81','E-91',
-    'OPS-1','OPS-2','OPS-3','OPS-4','BATT-1','BATT-2','SQD-1','SQD-8'
-  ];
-  const AC_DISPATCH = [
-    'Butler Fire','Walk-in Camp Foster','Camp Courtney','Camp Hansen',
-    'Camp Schwab','MCAS Futenma','Camp Kinser','Plaza Housing','Camp McTureous'
-  ];
-  const AC_LOCATION = ['Bldg#','Room#'];
-  const AC_BASE = [
-    'Camp Foster','Camp Courtney','Camp Hansen','Camp Schwab',
-    'Camp Kinser','Camp McTureous','Camp Lester','Camp Shields',
-    'MCAS Futenma','Plaza Housing','Torii Station','White Beach Naval Facility'
-  ];
-
-  function initAC(inputId, data, isMulti) {
-    const inp = document.getElementById(inputId);
-    if (!inp) return;
-    const wrap = document.createElement('div');
-    wrap.className = 'ac-wrap';
-    inp.parentNode.insertBefore(wrap, inp);
-    wrap.appendChild(inp);
-    const list = document.createElement('div');
-    list.className = 'ac-list';
-    wrap.appendChild(list);
-    let ai = -1;
-
-    const token = () => {
-      if (!isMulti) return inp.value;
-      const lc = inp.value.lastIndexOf(',');
-      return inp.value.slice(lc + 1).trim();
-    };
-    const pfx = () => {
-      if (!isMulti) return '';
-      const lc = inp.value.lastIndexOf(',');
-      return lc < 0 ? '' : inp.value.slice(0, lc + 1) + ' ';
-    };
-
-    const render = () => {
-      const q = token().toUpperCase();
-      if (!q) { list.classList.remove('open'); return; }
-      const hits = data.filter(d => d.toUpperCase().includes(q));
-      if (!hits.length) { list.classList.remove('open'); return; }
-      ai = -1;
-      list.innerHTML = hits.map(m => {
-        const qi = m.toUpperCase().indexOf(q);
-        const hl = qi >= 0
-          ? escHtml(m.slice(0,qi)) + '<strong>' + escHtml(m.slice(qi,qi+q.length)) + '</strong>' + escHtml(m.slice(qi+q.length))
-          : escHtml(m);
-        return `<div class="ac-item" data-v="${escHtml(m)}">${hl}</div>`;
-      }).join('');
-      list.classList.add('open');
-      list.querySelectorAll('.ac-item').forEach(el => {
-        el.onmousedown = e => {
-          e.preventDefault();
-          inp.value = isMulti ? pfx() + el.dataset.v + ', ' : el.dataset.v;
-          list.classList.remove('open');
-          inp.focus();
-        };
-      });
-    };
-
-    inp.addEventListener('input', render);
-    inp.addEventListener('focus', render);
-    inp.addEventListener('blur', () => setTimeout(() => list.classList.remove('open'), 200));
-    inp.addEventListener('keydown', e => {
-      const items = [...list.querySelectorAll('.ac-item')];
-      if (!items.length || !list.classList.contains('open')) return;
-      if (e.key === 'ArrowDown') {
-        e.preventDefault(); ai = Math.min(ai+1, items.length-1);
-        items.forEach((el,i) => el.classList.toggle('sel', i===ai));
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault(); ai = Math.max(ai-1, 0);
-        items.forEach((el,i) => el.classList.toggle('sel', i===ai));
-      } else if ((e.key==='Enter'||e.key==='Tab') && ai >= 0) {
-        e.preventDefault();
-        inp.value = isMulti ? pfx() + items[ai].dataset.v + ', ' : items[ai].dataset.v;
-        list.classList.remove('open');
-      } else if (e.key==='Escape') list.classList.remove('open');
-    });
-  }
-
-  /* ════ SUPABASE ════ */
-  const SUPABASE_URL = 'https://mvpryibpkcxqtskuwhal.supabase.co';
-  const SUPABASE_KEY = 'sb_publishable_FSf9DBcVyFFL5CTMrXSveQ_TwGdBMQr';
-  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-  let currentUser    = null;
-  let currentProfile = null;
-
-  /* ── Auth UI helpers ── */
-  function showPane(name) {
-    document.getElementById('loginPane').style.display  = name === 'login'  ? '' : 'none';
-    document.getElementById('signupPane').style.display = name === 'signup' ? '' : 'none';
-  }
-  function showAuthModal() { document.getElementById('authModal').classList.remove('hidden'); }
-  function hideAuthModal() { document.getElementById('authModal').classList.add('hidden'); }
-  function setMsg(id, type, msg) {
-    const el = document.getElementById(id);
-    el.className = 'auth-msg ' + type;
-    el.textContent = msg;
-    el.style.display = msg ? '' : 'none';
-  }
-
-  async function doLogin() {
-    const email    = (document.getElementById('loginEmail').value    || '').trim();
-    const password =  document.getElementById('loginPassword').value  || '';
-    setMsg('loginErr', 'err', '');
-    if (!email || !password) { setMsg('loginErr', 'err', 'メールとパスワードを入力してください'); return; }
-    const btn = document.getElementById('loginBtn');
-    btn.disabled = true; btn.textContent = 'ログイン中...';
-    const { error } = await sb.auth.signInWithPassword({ email, password });
-    btn.disabled = false; btn.textContent = 'ログイン';
-    if (error) setMsg('loginErr', 'err', error.message.includes('Invalid') ? 'メールまたはパスワードが違います' : error.message);
-  }
-
-  async function doSignup() {
-    const name     = (document.getElementById('signupName').value     || '').trim();
-    const email    = (document.getElementById('signupEmail').value    || '').trim();
-    const password =  document.getElementById('signupPassword').value  || '';
-    const code     = (document.getElementById('signupCode').value     || '').trim().toUpperCase();
-    setMsg('signupErr','err',''); setMsg('signupOk','ok','');
-    if (!name||!email||!password||!code) { setMsg('signupErr','err','全ての項目を入力してください'); return; }
-    if (password.length < 6) { setMsg('signupErr','err','パスワードは6文字以上にしてください'); return; }
-    const btn = document.getElementById('signupBtn');
-    btn.disabled = true; btn.textContent = '作成中...';
-    const { data, error } = await sb.auth.signUp({
-      email, password,
-      options: { data: { display_name: name, station_code: code } }
-    });
-    btn.disabled = false; btn.textContent = 'アカウント作成';
-    if (error) { setMsg('signupErr','err', error.message); return; }
-    if (!data.session) {
-      setMsg('signupOk','ok','✅ 確認メールを送信しました。メールを確認後にログインしてください。');
-    }
-    // If session exists, onAuthStateChange handles the rest
-  }
-
-  async function doSignOut() { await sb.auth.signOut(); }
-
-  async function loadOrCreateProfile() {
-    const { data: profile } = await sb
-      .from('profiles').select('*, stations(*)').eq('id', currentUser.id).maybeSingle();
-    if (profile?.station_id) { currentProfile = profile; return; }
-
-    const meta      = currentUser.user_metadata || {};
-    const code      = (meta.station_code || '').toUpperCase();
-    const dispName  = meta.display_name || currentUser.email;
-    if (!code) { currentProfile = profile; return; }
-
-    const { data: existing } = await sb.from('stations').select('id').eq('code', code).maybeSingle();
-    let stId = existing?.id;
-    let isNewStation = false;
-    if (!stId) {
-      const { data: ns } = await sb.from('stations').insert({ name: code, code }).select().single();
-      stId = ns?.id;
-      isNewStation = true;
-    }
-    if (!stId) { currentProfile = profile; return; }
-
-    const assignedRole = isNewStation ? 'admin' : 'member';
-    if (profile) {
-      await sb.from('profiles').update({ display_name: dispName, station_id: stId, role: assignedRole }).eq('id', currentUser.id);
-    } else {
-      await sb.from('profiles').insert({ id: currentUser.id, display_name: dispName, station_id: stId, role: assignedRole });
-    }
-    const { data: p2 } = await sb.from('profiles').select('*, stations(*)').eq('id', currentUser.id).maybeSingle();
-    currentProfile = p2;
-  }
-
-  /* ════ ADMIN ════ */
-  let adminVisible = false;
-
-  function toggleAdminPanel() {
-    adminVisible = !adminVisible;
-    document.getElementById('adminPanel').style.display = adminVisible ? '' : 'none';
-    document.getElementById('adminToggleBtn').textContent = adminVisible ? '非表示' : '表示';
-    if (adminVisible) loadMembers();
-  }
-
-  function showAdminSection() {
-    const isAdmin = currentProfile?.role === 'admin';
-    document.getElementById('adminSectionWrap').style.display = isAdmin ? '' : 'none';
-  }
-
-  async function loadMembers() {
-    if (!currentProfile?.station_id) return;
-    const { data: members } = await sb.from('profiles')
-      .select('id, display_name, role, created_at')
-      .eq('station_id', currentProfile.station_id)
-      .order('created_at', { ascending: true });
-
-    const wrap = document.getElementById('memberList');
-    if (!members?.length) { wrap.innerHTML = '<p class="history-empty">署員が見つかりません</p>'; return; }
-
-    const isAdmin = currentProfile.role === 'admin';
-    wrap.innerHTML = `<table class="member-table">
-      <thead><tr><th>名前</th><th>ロール</th><th>登録日</th>${isAdmin ? '<th></th>' : ''}</tr></thead>
-      <tbody>
-      ${members.map(m => {
-        const isMe = m.id === currentUser.id;
-        const d = new Date(m.created_at);
-        const dateStr = `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
-        const roleBadge = `<span class="role-badge ${m.role}">${m.role === 'admin' ? '管理者' : 'メンバー'}</span>`;
-        const actions = isAdmin && !isMe
-          ? (m.role === 'admin'
-              ? `<button class="btn-role" onclick="setRole('${m.id}','member')">メンバーに変更</button>`
-              : `<button class="btn-role" onclick="setRole('${m.id}','admin')">管理者に昇格</button>`)
-          : (isMe ? '<span style="font-size:.7rem;color:var(--muted);">自分</span>' : '');
-        return `<tr>
-          <td>${escHtml(m.display_name || '—')}</td>
-          <td>${roleBadge}</td>
-          <td style="color:var(--muted);font-size:.75rem;">${dateStr}</td>
-          ${isAdmin ? `<td>${actions}</td>` : ''}
-        </tr>`;
-      }).join('')}
-      </tbody>
-    </table>`;
-  }
-
-  async function setRole(userId, newRole) {
-    const label = newRole === 'admin' ? '管理者に昇格' : 'メンバーに変更';
-    if (!confirm(`${label}しますか？`)) return;
-    await sb.from('profiles').update({ role: newRole }).eq('id', userId);
-    loadMembers();
-  }
-
-  function updateUserBar() {
-    const bar = document.getElementById('userBar');
-    if (currentUser) {
-      bar.style.display = 'flex';
-      document.getElementById('userBarName').textContent    = currentProfile?.display_name || currentUser.email;
-      document.getElementById('userBarStation').textContent = currentProfile?.stations?.code || currentProfile?.stations?.name || '';
-    } else {
-      bar.style.display = 'none';
-    }
-  }
-
-  async function initAuth() {
-    const { data: { session } } = await sb.auth.getSession();
-    if (session?.user) {
-      currentUser = session.user;
-      await loadOrCreateProfile();
-      hideAuthModal();
-      updateUserBar();
-      showAdminSection();
-      renderHistory();
-    } else {
-      showAuthModal();
-    }
-    sb.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN') {
-        currentUser = session.user;
-        await loadOrCreateProfile();
-        hideAuthModal();
-        updateUserBar();
-        showAdminSection();
-        renderHistory();
-      } else if (event === 'SIGNED_OUT') {
-        currentUser = null; currentProfile = null;
-        updateUserBar();
-        showAdminSection();
-        renderHistory();
-        showAuthModal();
-      }
-    });
-  }
-
-  /* ── Misc helpers ── */
-  function escHtml(t) { return (t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-  function toggleServiceTicket() {
-    document.getElementById('serviceTicketField').style.display =
-      document.getElementById('outcome').value === 'service_ticket' ? '' : 'none';
-  }
-  function toggleMedTransport() {
-    document.getElementById('medTransportFields').style.display =
-      document.getElementById('medOutcome').value === 'roc' ? 'none' : '';
-  }
-  function saveApiKey() {
-    localStorage.setItem('claudeApiKey', (document.getElementById('claudeApiKey').value||'').trim());
-    const b = document.getElementById('apiSaveBtn');
-    b.textContent = '✓'; setTimeout(()=> b.textContent='保存', 1500);
-  }
-
-  /* ── Init ── */
   window.addEventListener('DOMContentLoaded', () => {
     const now = new Date();
     document.getElementById('incDate').valueAsDate = now;
-    document.getElementById('incTime').value =
-      String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
-    const saved = localStorage.getItem('claudeApiKey');
-    if (saved) document.getElementById('claudeApiKey').value = saved;
-    document.getElementById('incidentType').addEventListener('change', () => {
-      const med = document.getElementById('incidentType').value === 'MEDICAL EMERGENCY';
-      document.getElementById('fireSteps').style.display    = med ? 'none' : '';
-      document.getElementById('medicalSteps').style.display = med ? '' : 'none';
-    });
-    initAuth();
-
-    // Autocomplete
-    initAC('units',          AC_UNITS,    true);
-    initAC('dispatcher',     AC_DISPATCH, false);
-    initAC('base',           AC_BASE,     false);
-    initAC('locationDetail', AC_LOCATION, false);
+    const h = String(now.getHours()).padStart(2,'0');
+    const m = String(now.getMinutes()).padStart(2,'0');
+    document.getElementById('incTime').value = `${h}:${m}`;
   });
 
+  function actionOptions() {
+    return `<option value="">選択...</option>
+      <option value="System reset completed">システムリセット完了</option>
+      <option value="Fire suppressed using 1¾-inch hose line">1¾インチホースで鎮火</option>
+      <option value="Ventilation conducted">換気実施</option>
+      <option value="Building evacuated">建物避難完了</option>
+      <option value="Utilities isolated (gas/electric)">ガス・電気遮断</option>
+      <option value="CO levels cleared">CO濃度正常確認</option>
+      <option value="Area ventilated and monitored">エリア換気・監視</option>
+      <option value="Overhaul conducted">オーバーホール実施</option>
+      <option value="Patient treated and transported">傷病者処置・搬送</option>
+      <option value="No action required">措置不要</option>
+      <option value="Turned over to civilian authorities">民間当局へ引き渡し</option>`;
+  }
+
   function addAction() {
-    const container = document.getElementById('actionsContainer');
-    const sel = document.createElement('div');
-    sel.style.cssText = 'display:flex;gap:8px;margin-bottom:8px;';
-    sel.innerHTML = `
-      <select class="action-select" style="flex:1">
-        <option value="">選択...</option>
-        <option value="System reset completed">システムリセット完了</option>
-        <option value="Placed in silence position">リセット不可・サイレンスポジション</option>
-        <option value="Fire suppressed using 1¾-inch hose line">1¾インチホースで鎮火</option>
-        <option value="Ventilation conducted">換気実施</option>
-        <option value="Building evacuated">建物避難完了</option>
-        <option value="Utilities isolated (gas/electric)">ガス・電気遮断</option>
-        <option value="CO levels cleared">CO濃度正常確認</option>
-        <option value="Area ventilated and monitored">エリア換気・監視</option>
-        <option value="Overhaul conducted">オーバーホール実施</option>
-        <option value="Patient treated and transported">傷病者処置・搬送</option>
-        <option value="No action required">措置不要</option>
-        <option value="Turned over to civilian authorities">民間当局へ引き渡し</option>
-      </select>
-      <button type="button" onclick="this.parentElement.remove()" style="background:#922b21;border:none;color:#fff;border-radius:6px;padding:0 10px;cursor:pointer;font-size:1rem;">×</button>`;
-    container.appendChild(sel);
+    const c = document.getElementById('actionsContainer');
+    const row = document.createElement('div');
+    row.className = 'action-row';
+    row.innerHTML = `<select class="action-select">${actionOptions()}</select>
+      <button type="button" class="btn-rm" onclick="this.parentElement.remove()">×</button>`;
+    c.appendChild(row);
   }
 
   function pad2(n){ return String(n).padStart(2,'0'); }
-  function formatMilTime(t) { return t ? t.replace(':','') : '????'; }
-  function formatDate(d) {
-    if (!d) return 'UNKNOWN DATE';
-    const [y,m,dd] = d.split('-');
-    return `${pad2(m)}/${pad2(dd)}/${y.slice(2)}`;
-  }
   function v(id){ return (document.getElementById(id)?.value||'').trim(); }
 
-  /* ── Translation ── */
-  function hasJP(t) { return /[　-鿿＀-￯]/.test(t); }
-  async function tx(text) {
-    if (!text||!hasJP(text)) return text;
-    try {
-      const r = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=ja|en`);
-      const d = await r.json();
-      return d.responseData?.translatedText || text;
-    } catch { return text; }
+  function formatDate(s) {
+    if (!s) return 'UNKNOWN';
+    const [y,m,d] = s.split('-');
+    return `${pad2(d)}/${pad2(m)}/${y.slice(2)}`;
   }
 
-  /* ── Claude API ── */
-  async function callClaude(system, user) {
-    const key = (localStorage.getItem('claudeApiKey')||'').trim();
-    if (!key) return null;
-    try {
-      const r = await fetch('https://api.anthropic.com/v1/messages', {
-        method:'POST',
-        headers:{ 'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true' },
-        body: JSON.stringify({ model:'claude-haiku-4-5-20251001', max_tokens:700, system, messages:[{role:'user',content:user}] })
-      });
-      if (!r.ok) return null;
-      const d = await r.json();
-      return d.content?.[0]?.text?.trim()||null;
-    } catch { return null; }
-  }
+  function generateReport() {
+    const units      = v('units')      || '???';
+    const dispatcher = v('dispatcher') || 'Fire Dispatch';
+    const incType    = v('incidentTypeCustom') || v('incidentType') || 'INCIDENT';
+    const building   = v('building');
+    const timeStr    = v('incTime');
+    const tz         = v('timezone') || 'JST';
+    const dateStr    = v('incDate');
+    const base       = v('base');
+    const locDetail  = v('locationDetail');
+    const arrCond    = v('arrivalCondition');
+    const arrExtra   = v('arrivalExtra');
+    const finding    = v('finding');
+    const findDetail = v('findingDetail');
+    const cause      = v('cause') || 'cause unknown';
+    const actExtra   = v('actionsExtra');
+    const outcome    = v('outcome') || 'returned to station';
+    const freeNarr   = v('freeNarrative');
 
-  /* ── Report ── */
-  function showReport(who, what, when, where, narrative) {
-    const report = `5W\nWHO:   ${who}\nWHAT:  ${what.toUpperCase()}\nWHEN:  ${when}\nWHERE: ${where||'N/A'}\nWHY:\n${narrative}`;
+    const actions = [];
+    document.querySelectorAll('.action-select').forEach(s => { if(s.value) actions.push(s.value); });
+
+    const whereStr = [base, building].filter(Boolean).join(' ');
+    const milTime  = timeStr ? timeStr.replace(':','') : '????';
+    const whenStr  = `${milTime}(${tz}), ${formatDate(dateStr)}`;
+    const unitList = units.split(',').map(u=>u.trim()).join(' and ');
+
+    let narrative = '';
+    if (freeNarr) {
+      narrative = freeNarr;
+    } else {
+      const parts = [];
+      parts.push(`${unitList} dispatched by ${dispatcher} for a ${incType} at ${whereStr || 'the reported location'}.`);
+
+      if (arrCond) {
+        let s = `Arrived on scene to find ${arrCond}`;
+        if (arrExtra) s += `; ${arrExtra}`;
+        parts.push(s + '.');
+      }
+
+      if (finding || findDetail) {
+        let s = 'Upon investigation ';
+        if (finding) { s += finding; if (findDetail) s += ` in ${findDetail}`; }
+        else if (findDetail) s += `conditions found in ${findDetail}`;
+        s += ` was found; ${cause}.`;
+        parts.push(s);
+      }
+
+      if (actions.length === 1) {
+        parts.push(`${actions[0]} and responding unit ${outcome}.`);
+      } else if (actions.length > 1) {
+        const last = actions[actions.length-1];
+        parts.push(`${actions.slice(0,-1).join(', ')}, and ${last}.`);
+        parts.push(`Responding unit ${outcome}.`);
+      } else {
+        parts.push(`Responding unit ${outcome}.`);
+      }
+
+      if (actExtra) parts.push(actExtra);
+      narrative = parts.join(' ');
+    }
+
+    const report =
+`5W
+WHO:   ${units}
+WHAT:  ${incType}
+WHEN:  ${whenStr}
+WHERE: ${whereStr || 'N/A'}
+WHY:
+${narrative}`;
+
     const box = document.getElementById('reportBox');
     box.textContent = report;
     box.dataset.report = report;
     const sec = document.getElementById('reportSection');
     sec.classList.add('visible');
-    sec.scrollIntoView({ behavior:'smooth', block:'start' });
-    saveToHistory(report, what, when, where);
-  }
-
-  /* ── History (Supabase + localStorage fallback) ── */
-  async function saveToHistory(report, incType, when, where) {
-    // localStorage backup
-    const history = JSON.parse(localStorage.getItem('reportHistory')||'[]');
-    history.unshift({ id: Date.now().toString(), type: incType.toUpperCase(), when, where: where||'', text: report });
-    if (history.length > 50) history.pop();
-    localStorage.setItem('reportHistory', JSON.stringify(history));
-
-    // Supabase
-    if (currentUser && currentProfile?.station_id) {
-      try {
-        await sb.from('reports').insert({
-          station_id:    currentProfile.station_id,
-          user_id:       currentUser.id,
-          display_name:  currentProfile.display_name || currentUser.email,
-          incident_type: incType.toUpperCase(),
-          report_text:   report,
-          incident_when: when,
-          incident_where: where||''
-        });
-      } catch(e) { console.warn('Supabase save failed', e); }
-    }
-    renderHistory();
-  }
-
-  async function renderHistory() {
-    const list = document.getElementById('historyList');
-    if (!list) return;
-
-    if (currentUser && currentProfile?.station_id) {
-      const { data: rows } = await sb.from('reports')
-        .select('*')
-        .eq('station_id', currentProfile.station_id)
-        .order('created_at', { ascending: false })
-        .limit(50);
-
-      if (!rows?.length) { list.innerHTML = '<p class="history-empty">保存されたレポートはありません</p>'; return; }
-
-      list.innerHTML = rows.map(r => {
-        const sid = 'sb' + r.id.replace(/-/g,'');
-        const canDel = r.user_id === currentUser?.id || currentProfile?.role === 'admin';
-        return `<div class="history-item">
-          <div class="history-meta" onclick="toggleHistoryBody('${sid}')">
-            <span class="history-badge">${escHtml(r.incident_type)}</span>
-            <div class="history-info">
-              <span class="history-when">${escHtml(r.incident_when)} · <em style="font-style:normal;color:var(--accent);">${escHtml(r.display_name||'')}</em></span>
-              <span class="history-where">${escHtml(r.incident_where||'N/A')}</span>
-            </div>
-            <span class="history-chevron">▼</span>
-            ${canDel ? `<button class="history-del" onclick="event.stopPropagation();deleteSbReport('${r.id}')">🗑</button>` : ''}
-          </div>
-          <div class="history-body" id="hb-${sid}">
-            <pre class="history-text">${escHtml(r.report_text)}</pre>
-            <button class="btn-copy-hist" onclick="copyPre(this)">📋 Copy</button>
-          </div>
-        </div>`;
-      }).join('');
-      return;
-    }
-
-    // localStorage fallback
-    const history = JSON.parse(localStorage.getItem('reportHistory')||'[]');
-    if (!history.length) { list.innerHTML = '<p class="history-empty">保存されたレポートはありません</p>'; return; }
-    list.innerHTML = history.map(item => `
-      <div class="history-item">
-        <div class="history-meta" onclick="toggleHistoryBody('${item.id}')">
-          <span class="history-badge">${item.type}</span>
-          <div class="history-info">
-            <span class="history-when">${item.when}</span>
-            <span class="history-where">${item.where||'N/A'}</span>
-          </div>
-          <span class="history-chevron">▼</span>
-          <button class="history-del" onclick="event.stopPropagation();deleteHistoryItem('${item.id}')">🗑</button>
-        </div>
-        <div class="history-body" id="hb-${item.id}">
-          <pre class="history-text">${escHtml(item.text)}</pre>
-          <button class="btn-copy-hist" onclick="copyPre(this)">📋 Copy</button>
-        </div>
-      </div>`).join('');
-  }
-
-  function copyPre(btn) {
-    navigator.clipboard.writeText(btn.previousElementSibling.textContent).then(() => {
-      btn.textContent = '✅ Copied!';
-      setTimeout(() => btn.textContent = '📋 Copy', 2000);
-    });
-  }
-
-  function toggleHistoryBody(id) {
-    const body = document.getElementById('hb-' + id);
-    if (body) body.classList.toggle('open');
-  }
-
-  function deleteHistoryItem(id) {
-    let h = JSON.parse(localStorage.getItem('reportHistory')||'[]');
-    localStorage.setItem('reportHistory', JSON.stringify(h.filter(x => x.id !== id)));
-    renderHistory();
-  }
-
-  async function deleteSbReport(id) {
-    if (!confirm('このレポートを削除しますか？')) return;
-    await sb.from('reports').delete().eq('id', id).eq('user_id', currentUser.id);
-    renderHistory();
-  }
-
-  async function clearAllHistory() {
-    if (!confirm('自分のレポートを全て削除しますか？')) return;
-    if (currentUser) {
-      await sb.from('reports').delete().eq('user_id', currentUser.id);
-    }
-    localStorage.removeItem('reportHistory');
-    renderHistory();
-  }
-
-  /* ── Template builders ── */
-  function buildFireTemplate(unitList, dispatcher, incType, whereStr, arrCond, arrEx, finding, findDet, cause, actions, actEx, outcome, svcTicketDest) {
-    const loc = whereStr || 'the reported location';
-    const b1 = `${unitList} dispatched by ${dispatcher} to a ${incType} at ${loc}.`;
-    let b2 = '';
-    if (arrCond) {
-      b2 = arrCond.includes('360')
-        ? 'Arrived on scene to find nothing showing after conducting 360 survey.'
-        : `Arrived on scene to find ${arrCond}.`;
-      if (arrEx) b2 += ' ' + (arrEx.endsWith('.') ? arrEx : arrEx + '.');
-    }
-    let b3 = '';
-    if (finding || findDet) {
-      let f = finding || '';
-      if (findDet) f += (f ? ` in ${findDet}` : findDet);
-      b3 = `Upon investigation ${f} was found`;
-      if (cause && cause !== 'cause unknown') b3 += `, caused by ${cause}`;
-      b3 += '.';
-    }
-    let b4 = '';
-    if (outcome === 'service_ticket') {
-      const hasSilence   = actions.includes('Placed in silence position');
-      const otherActions = actions.filter(a => a !== 'Placed in silence position');
-      const actLine      = otherActions.length ? otherActions.join(', ') + '.' : '';
-      const dest         = svcTicketDest || 'G-F';
-      const silencePart  = hasSilence ? ', placed system in silence position,' : '';
-      const svcLine      = `Fire alarm system was not able to be restored${silencePart}, requested service ticket to ${dest}.`;
-      b4 = [actLine, svcLine].filter(Boolean).join('\n');
-    } else {
-      const actParts = [...actions];
-      if (outcome) actParts.push(`unit ${outcome}`);
-      b4 = actParts.length ? actParts.join(' and ') + '.' : '';
-    }
-    if (actEx) b4 += (b4 ? '\n' : '') + (actEx.endsWith('.') ? actEx : actEx + '.');
-    return [b1, b2, b3, b4].filter(Boolean).join('\n');
-  }
-
-  function buildMedTemplate(unitList, dispatcher, whereStr, arr, cc, hx, ass, treatment, outcome, dest, transportUnit) {
-    const loc = whereStr || 'the reported location';
-    const b1 = `${unitList} dispatched by ${dispatcher} to a medical call at ${loc}.`;
-    let b2 = '';
-    if (arr) {
-      b2 = `Arrived on scene to find ${arr}`;
-      if (cc) b2 += `, c/c ${cc}`;
-      b2 += '.';
-    } else if (cc) {
-      b2 = `Arrived on scene to find patient c/c ${cc}.`;
-    }
-    const b3 = hx ? (hx.trimEnd().endsWith('.') ? hx.trimEnd() : hx.trimEnd() + '.') : '';
-    let b4 = '';
-    if (outcome === 'roc') {
-      b4 = 'Patient was ROC.';
-    } else {
-      const d = dest || 'USNH';
-      const u = transportUnit;
-      b4 = 'Crew assisted EMT with patient assessment and loaded the patient to the ambulance.\n' +
-           (u ? `Patient was transported to ${d} by ${u}.` : `Patient was transported to ${d}.`);
-    }
-    return [b1, b2, b3, b4].filter(Boolean).join('\n');
-  }
-
-  async function generateReport() {
-    const btn = document.getElementById('generateBtn');
-    const useAI = !!(localStorage.getItem('claudeApiKey')||'').trim();
-    btn.textContent = useAI ? '🤖 AI GENERATING...' : '⏳ TRANSLATING...';
-    btn.disabled = true;
-    try {
-      const rawUnits      = v('units')             || '???';
-      const rawDispatcher = v('dispatcher')        || 'Fire Dispatch';
-      const rawIncType    = v('incidentTypeCustom')|| v('incidentType') || 'INCIDENT';
-      const rawBase       = v('base');
-      const rawLoc        = v('locationDetail');
-      const tz            = v('timezone') || 'JST';
-      const whenStr       = `${formatMilTime(v('incTime'))}(${tz}), ${formatDate(v('incDate'))}`;
-      const isMedical     = (v('incidentType') === 'MEDICAL EMERGENCY') && !v('incidentTypeCustom');
-      const freeNarr      = v('freeNarrative');
-
-      const [units, dispatcher, incType, base, loc] = await Promise.all([
-        tx(rawUnits), tx(rawDispatcher), tx(rawIncType), tx(rawBase), tx(rawLoc)
-      ]);
-      const whereStr = [base, loc].filter(Boolean).join(' ');
-      const unitList = units.split(',').map(u => u.trim()).join(' and ');
-
-      let narrative = '';
-
-      /* MEDICAL */
-      if (isMedical) {
-        const rawArr  = v('medArrival'), rawCC = v('medCC'), rawHx = v('medHistory');
-        const rawAss  = v('medAssessment'), rawTx = v('medTreatment');
-        const medOutc = v('medOutcome') || 'transported';
-        const rawDest = v('medTransferDest') || 'USNH';
-        const rawUnit = v('medTransferUnit');
-        if (freeNarr) {
-          narrative = await tx(freeNarr);
-        } else if (useAI) {
-          const isROC = medOutc === 'roc';
-          const sys = `You are a military fire department EMS report writer. Write the narrative in this exact format — each section on its own line, single newline between lines, NO blank lines:\nLine 1: "[Units] dispatched by [dispatcher] to a medical call at [location]."\nLine 2: "Arrived on scene to find [age] y/o [male/female] patient, [position/condition], c/c [chief complaint]."\nLine 3: One short natural sentence describing what happened. Use the History field. No vitals, no headers.\n${isROC ? 'Line 4: "Patient was ROC."' : 'Line 4: "Crew assisted EMT with patient assessment and loaded the patient to the ambulance."\nLine 5: "Patient was transported to [destination] by [unit]."'}\nRules: past tense, natural readable English. Translate Japanese. No bullets, no blank lines.`;
-          const usr = `Units: ${unitList}\nDispatched by: ${dispatcher}\nLocation: ${whereStr||'reported location'}\nPatient found: ${rawArr}\nChief complaint: ${rawCC}\nHistory: ${rawHx}\nAssessment: ${rawAss}\nTreatment: ${rawTx}\nOutcome: ${isROC ? 'ROC' : `Transported to ${rawDest} by ${rawUnit||'Medic unit'}`}`;
-          const ai = await callClaude(sys, usr);
-          if (ai) {
-            narrative = ai;
-          } else {
-            const [arr,cc,hx,ass,tr,dest,unit] = await Promise.all([tx(rawArr),tx(rawCC),tx(rawHx),tx(rawAss),tx(rawTx),tx(rawDest),tx(rawUnit)]);
-            narrative = buildMedTemplate(unitList, dispatcher, whereStr, arr, cc, hx, ass, tr, medOutc, dest, unit);
-          }
-        } else {
-          const [arr,cc,hx,ass,tr,dest,unit] = await Promise.all([tx(rawArr),tx(rawCC),tx(rawHx),tx(rawAss),tx(rawTx),tx(rawDest),tx(rawUnit)]);
-          narrative = buildMedTemplate(unitList, dispatcher, whereStr, arr, cc, hx, ass, tr, medOutc, dest, unit);
-        }
-        showReport(units, incType, whenStr, whereStr, narrative);
-        return;
-      }
-
-      /* FIRE / OTHER */
-      const arrCond       = v('arrivalCondition');
-      const rawArrEx      = v('arrivalExtra');
-      const finding       = v('finding');
-      const rawFindD      = v('findingDetail');
-      const cause         = v('cause') || 'cause unknown';
-      const rawActEx      = v('actionsExtra');
-      const outcome       = v('outcome') || 'returned to station';
-      const svcTicketDest = v('serviceTicketDest') || 'G-F';
-      const actions       = [...document.querySelectorAll('.action-select')].map(s => s.value).filter(Boolean);
-
-      if (freeNarr) {
-        narrative = await tx(freeNarr);
-      } else if (useAI) {
-        const sys = `You are a professional military fire department incident report writer. Format the narrative with each section on a new line (single newline, NO blank lines):\n"[Units] dispatched by [dispatcher] to a [incident type] at [location]."\n"Arrived on scene to find nothing showing after conducting 360 survey."\n"Upon investigation [finding] was found in [location], caused by [cause]."\n"[Actions]. [Unit] returned to station."\nRules: past tense, IFSTA/NFPA terminology. Abbreviate fire alarm as "F/Alarm". Use "360 survey". Translate Japanese. No bullets, no blank lines.`;
-        const [arrEx, findD, actEx] = await Promise.all([tx(rawArrEx), tx(rawFindD), tx(rawActEx)]);
-        const hasSilenceAI  = actions.includes('Placed in silence position');
-        const silencePartAI = hasSilenceAI ? ', placed system in silence position,' : '';
-        const outcomeDesc   = outcome === 'service_ticket'
-          ? `Fire alarm system was not able to be restored${silencePartAI}, requested service ticket to ${svcTicketDest}`
-          : outcome;
-        const usr = `Units: ${unitList}\nDispatched by: ${dispatcher}\nIncident type: ${incType}\nLocation: ${whereStr||'reported location'}\nArrival: ${arrCond||'not specified'}${arrEx ? '; '+arrEx : ''}\nFinding: ${finding||'not specified'}${findD ? ' in '+findD : ''}\nCause: ${cause}\nActions: ${actions.length ? actions.join(', ') : 'none'}\nNotes: ${actEx||'none'}\nOutcome: ${outcomeDesc}`;
-        const ai = await callClaude(sys, usr);
-        if (ai) {
-          narrative = ai;
-        } else {
-          narrative = buildFireTemplate(unitList, dispatcher, incType, whereStr, arrCond, arrEx, finding, findD, cause, actions, actEx, outcome, svcTicketDest);
-        }
-      } else {
-        const [arrEx, findD, actEx] = await Promise.all([tx(rawArrEx), tx(rawFindD), tx(rawActEx)]);
-        narrative = buildFireTemplate(unitList, dispatcher, incType, whereStr, arrCond, arrEx, finding, findD, cause, actions, actEx, outcome, svcTicketDest);
-      }
-      showReport(units, incType, whenStr, whereStr, narrative);
-
-    } finally {
-      btn.textContent = '🔥 GENERATE INCIDENT REPORT';
-      btn.disabled = false;
-    }
-  }
-
-  /* ════ MONTHLY STATS ════ */
-  let monthlyChartInst = null;
-  let typeChartInst    = null;
-  let statsVisible     = false;
-
-  function toggleStats() {
-    statsVisible = !statsVisible;
-    document.getElementById('statsSection').style.display = statsVisible ? '' : 'none';
-    document.getElementById('statsToggleBtn').textContent = statsVisible ? '非表示' : '表示';
-    if (statsVisible) loadStats();
-  }
-
-  async function loadStats() {
-    if (!currentUser || !currentProfile?.station_id) return;
-
-    // Fetch all reports for this station (for totals + 6-month view)
-    const sixMonthsAgo = new Date();
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
-    sixMonthsAgo.setDate(1);
-    sixMonthsAgo.setHours(0,0,0,0);
-
-    const { data: reports } = await sb.from('reports')
-      .select('incident_type, created_at')
-      .eq('station_id', currentProfile.station_id)
-      .gte('created_at', sixMonthsAgo.toISOString())
-      .order('created_at', { ascending: true });
-
-    const { count: totalAll } = await sb.from('reports')
-      .select('*', { count:'exact', head:true })
-      .eq('station_id', currentProfile.station_id);
-
-    if (!reports) return;
-
-    // Build month buckets (last 6 months)
-    const now = new Date();
-    const byMonth = {};
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-      byMonth[key] = { label: `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}`, total: 0, types: {} };
-    }
-
-    const byType = {};
-    reports.forEach(r => {
-      const d   = new Date(r.created_at);
-      const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-      const typ = r.incident_type || 'UNKNOWN';
-      if (byMonth[key]) {
-        byMonth[key].total++;
-        byMonth[key].types[typ] = (byMonth[key].types[typ] || 0) + 1;
-      }
-      byType[typ] = (byType[typ] || 0) + 1;
-    });
-
-    // Summary cards
-    const months = Object.keys(byMonth).sort();
-    const thisKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-    const lastKey = months[months.length - 2];
-    document.getElementById('statThisMonth').textContent = byMonth[thisKey]?.total ?? 0;
-    document.getElementById('statLastMonth').textContent = byMonth[lastKey]?.total ?? 0;
-    document.getElementById('statTotal').textContent     = totalAll ?? reports.length;
-
-    // Monthly bar chart
-    const labels  = months.map(k => byMonth[k].label);
-    const totals  = months.map(k => byMonth[k].total);
-    const COLORS  = ['#c0392b','#e67e22','#f0a500','#27ae60','#2980b9','#8e44ad'];
-
-    if (monthlyChartInst) monthlyChartInst.destroy();
-    monthlyChartInst = new Chart(document.getElementById('monthlyChart'), {
-      type: 'bar',
-      data: {
-        labels,
-        datasets: [{
-          label: '出動件数',
-          data: totals,
-          backgroundColor: labels.map((_,i) => COLORS[i % COLORS.length]),
-          borderRadius: 6,
-        }]
-      },
-      options: {
-        responsive: true,
-        plugins: { legend: { display: false } },
-        scales: {
-          x: { ticks: { color:'#8b93a5' }, grid: { color:'rgba(58,63,75,.4)' } },
-          y: { ticks: { color:'#8b93a5', stepSize:1 }, grid: { color:'rgba(58,63,75,.4)' }, beginAtZero: true }
-        }
-      }
-    });
-
-    // Type donut chart
-    const typeLabels = Object.keys(byType);
-    const typeVals   = typeLabels.map(k => byType[k]);
-    const pieColors  = typeLabels.map((_,i) => COLORS[i % COLORS.length]);
-
-    if (typeChartInst) typeChartInst.destroy();
-    typeChartInst = new Chart(document.getElementById('typeChart'), {
-      type: 'doughnut',
-      data: { labels: typeLabels, datasets: [{ data: typeVals, backgroundColor: pieColors, borderWidth: 2, borderColor: '#2c313a' }] },
-      options: {
-        responsive: true,
-        plugins: {
-          legend: { position:'bottom', labels: { color:'#8b93a5', font:{ size:10 }, boxWidth:12 } }
-        }
-      }
-    });
-
-    // Table
-    const allTypes = [...new Set(reports.map(r => r.incident_type || 'UNKNOWN'))].sort();
-    let html = `<table class="stats-table"><thead><tr><th>月</th><th>合計</th>`;
-    allTypes.forEach(t => { html += `<th>${t.replace(' ALARM','').replace(' EMERGENCY','')}</th>`; });
-    html += `</tr></thead><tbody>`;
-    months.slice().reverse().forEach(k => {
-      const m = byMonth[k];
-      html += `<tr><td>${m.label}</td><td class="num">${m.total}</td>`;
-      allTypes.forEach(t => { html += `<td class="num">${m.types[t]||'—'}</td>`; });
-      html += `</tr>`;
-    });
-    // Total row
-    html += `<tr style="font-weight:800;border-top:2px solid var(--border);"><td>合計</td><td class="num">${reports.length}</td>`;
-    allTypes.forEach(t => { html += `<td class="num">${byType[t]||'—'}</td>`; });
-    html += `</tr></tbody></table>`;
-    document.getElementById('statsTableWrap').innerHTML = html;
+    sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   function copyReport() {
@@ -1507,7 +514,9 @@
     });
   }
 
-  function clearReport() { document.getElementById('reportSection').classList.remove('visible'); }
+  function clearReport() {
+    document.getElementById('reportSection').classList.remove('visible');
+  }
 </script>
 </body>
 </html>
