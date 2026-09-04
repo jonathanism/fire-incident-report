@@ -72,6 +72,34 @@
 
     .free-tag { background: #2980b9; }
 
+    .autocomplete-wrap { position: relative; }
+    .suggest-box {
+      position: absolute; top: 100%; left: 0; right: 0; z-index: 40; margin-top: 3px;
+      background: #fff; border: 1.5px solid #d0d7e6; border-radius: 8px;
+      max-height: 230px; overflow-y: auto; box-shadow: 0 10px 24px rgba(20,30,50,.14);
+      display: none;
+    }
+    .suggest-box.open { display: block; }
+    .suggest-item {
+      padding: 10px 13px; font-size: .84rem; cursor: pointer; color: #1e2430;
+      border-bottom: 1px solid #eef1f6; display: flex; justify-content: space-between; align-items: center; gap: 8px;
+    }
+    .suggest-item:last-child { border-bottom: none; }
+    .suggest-item:hover, .suggest-item.active { background: #fdecea; color: #922b21; }
+    .suggest-item .freq { font-size: .66rem; color: #aab4c8; font-weight: 700; flex-shrink: 0; }
+    .suggest-item:hover .freq, .suggest-item.active .freq { color: #c0392b; }
+
+    .quick-types { margin-bottom: 9px; }
+    .quick-row { display: flex; gap: 7px; margin-bottom: 7px; }
+    .quick-row:last-child { margin-bottom: 0; }
+    .chip {
+      flex: 1; background: #f7f9fc; border: 1.5px solid #d0d7e6; color: #526074;
+      padding: 10px 6px; border-radius: 8px; font-size: .76rem; font-weight: 800;
+      cursor: pointer; text-align: center; transition: all .15s; letter-spacing: .01em;
+    }
+    .chip:hover { border-color: #e29a92; color: #c0392b; }
+    .chip.active { background: #c0392b; border-color: #c0392b; color: #fff; box-shadow: 0 3px 10px rgba(192,57,43,.35); }
+
     #generateBtn {
       width: 100%; padding: 15px; margin-top: 20px;
       background: linear-gradient(135deg, #922b21, #c0392b);
@@ -127,13 +155,15 @@
     <span class="line"></span>
   </div>
   <div class="card">
-    <div class="field">
+    <div class="field autocomplete-wrap">
       <label>出動部隊 <span class="ja">Responding Units</span> <span class="req">*</span></label>
-      <input type="text" id="units" placeholder="例: E-11, L-1"/>
+      <input type="text" id="units" placeholder="例: E-11, L-1" autocomplete="off"/>
+      <div class="suggest-box" id="unitsSuggest"></div>
     </div>
-    <div class="field">
+    <div class="field autocomplete-wrap">
       <label>指令センター <span class="ja">Dispatched by</span></label>
-      <input type="text" id="dispatcher" placeholder="例: Butler Fire"/>
+      <input type="text" id="dispatcher" placeholder="例: Butler Fire" autocomplete="off"/>
+      <div class="suggest-box" id="dispatcherSuggest"></div>
     </div>
   </div>
 
@@ -147,9 +177,21 @@
     <div class="row2">
       <div class="field">
         <label>種別 <span class="ja">Incident Type</span> <span class="req">*</span></label>
+        <div class="quick-types">
+          <div class="quick-row">
+            <button type="button" class="chip" data-type="FIRE ALARM">Fire Alarm</button>
+            <button type="button" class="chip" data-type="TROUBLE ALARM">Trouble Alarm</button>
+            <button type="button" class="chip" data-type="SUPERVISORY ALARM">Supervisory Alarm</button>
+          </div>
+          <div class="quick-row">
+            <button type="button" class="chip" data-type="MEDICAL CALL">Medical</button>
+            <button type="button" class="chip" data-type="FIRE">Fire</button>
+          </div>
+        </div>
         <select id="incidentType">
           <option value="">選択...</option>
           <optgroup label="火災">
+            <option value="FIRE">火災（種別未確定） / Fire</option>
             <option value="STRUCTURE FIRE">建物火災</option>
             <option value="VEHICLE FIRE">車両火災</option>
             <option value="WILDLAND FIRE">山林火災</option>
@@ -157,12 +199,14 @@
           </optgroup>
           <optgroup label="警報・調査">
             <option value="FIRE ALARM">火災報知器 / Fire Alarm</option>
+            <option value="TROUBLE ALARM">トラブルアラーム / Trouble Alarm</option>
+            <option value="SUPERVISORY ALARM">監視警報 / Supervisory Alarm</option>
             <option value="SMOKE INVESTIGATION">煙調査</option>
             <option value="CARBON MONOXIDE ALARM">CO警報</option>
             <option value="FALSE ALARM">誤報</option>
           </optgroup>
           <optgroup label="救急・その他">
-            <option value="MEDICAL EMERGENCY">医療緊急</option>
+            <option value="MEDICAL CALL">医療緊急 / Medical Call</option>
             <option value="HAZMAT INCIDENT">危険物</option>
             <option value="GAS LEAK">ガス漏れ</option>
             <option value="VEHICLE ACCIDENT">交通事故</option>
@@ -174,10 +218,6 @@
         <label>カスタム <span class="ja">Custom Type（任意）</span></label>
         <input type="text" id="incidentTypeCustom" placeholder="上記以外の場合"/>
       </div>
-    </div>
-    <div class="field">
-      <label>建物・施設 <span class="ja">Building / Facility</span></label>
-      <input type="text" id="building" placeholder="例: BLDG#320"/>
     </div>
   </div>
 
@@ -217,13 +257,15 @@
     <span class="line"></span>
   </div>
   <div class="card">
-    <div class="field">
+    <div class="field autocomplete-wrap">
       <label>基地・施設名 <span class="ja">Installation / Base</span></label>
-      <input type="text" id="base" placeholder="例: CAMP FOSTER"/>
+      <input type="text" id="base" placeholder="例: CAMP FOSTER" autocomplete="off"/>
+      <div class="suggest-box" id="baseSuggest"></div>
     </div>
-    <div class="field">
+    <div class="field autocomplete-wrap">
       <label>詳細場所 <span class="ja">Specific Location</span></label>
-      <input type="text" id="locationDetail" placeholder="例: Room#302, 2nd Floor"/>
+      <input type="text" id="locationDetail" placeholder="例: Room#302, 2nd Floor" autocomplete="off"/>
+      <div class="suggest-box" id="locationDetailSuggest"></div>
     </div>
   </div>
 
@@ -234,7 +276,7 @@
     <span class="line"></span>
   </div>
   <div class="card">
-    <div class="steps">
+    <div class="steps" id="fireFlow">
 
       <div class="step">
         <div class="step-num">1</div>
@@ -243,7 +285,7 @@
             <label>到着時の状況 <span class="ja">Arrival / Scene Conditions</span></label>
             <select id="arrivalCondition">
               <option value="">選択...</option>
-              <option value="nothing showing outside on 360">外観異常なし（360度確認）</option>
+              <option value="nothing showing outside on 360 survey">外観異常なし（360度確認）</option>
               <option value="smoke showing from the structure">建物から煙が見える</option>
               <option value="flames showing from the structure">建物から炎が見える</option>
               <option value="heavy smoke conditions throughout the building">建物全体に濃煙</option>
@@ -294,6 +336,7 @@
               <option value="suspected arson">放火疑い</option>
               <option value="equipment malfunction">設備故障</option>
               <option value="candle/open flame">ろうそく・裸火</option>
+              <option value="malicious activation">いたずら / Malicious</option>
               <option value="no fire present — system fault">火災なし・システム誤作動</option>
             </select>
           </div>
@@ -320,6 +363,7 @@
                   <option value="Patient treated and transported">傷病者処置・搬送</option>
                   <option value="No action required">措置不要</option>
                   <option value="Turned over to civilian authorities">民間当局へ引き渡し</option>
+                  <option value="Maintenance request submitted">メンテナンス要請</option>
                 </select>
               </div>
             </div>
@@ -344,6 +388,88 @@
               <option value="patient transported to naval hospital">傷病者を海軍病院へ搬送</option>
               <option value="scene secured and handed over to MP">MPへ引き渡し</option>
             </select>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="steps" id="medicalFlow" style="display:none;">
+
+      <div class="step">
+        <div class="step-num">A</div>
+        <div class="step-body">
+          <div class="field">
+            <label>年齢・性別 <span class="ja">Age / Gender</span></label>
+            <div class="row2">
+              <input type="text" id="medAge" placeholder="例: 58"/>
+              <select id="medGender">
+                <option value="">選択...</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+              </select>
+            </div>
+          </div>
+          <div class="field">
+            <label>現場到着時の状況 <span class="ja">Arrived on scene to find</span></label>
+            <input type="text" id="medArrived" placeholder="例: lying in bed / seated in chair, alert and oriented x4"/>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">C</div>
+        <div class="step-body">
+          <div class="field">
+            <label>主訴 <span class="ja">Chief complaint of</span></label>
+            <input type="text" id="medChief" placeholder="例: chest pain, onset 30 min prior"/>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">H</div>
+        <div class="step-body">
+          <div class="field">
+            <label>経過 <span class="ja">History (What happened)</span></label>
+            <textarea id="medHistory" rows="2" placeholder="例: Patient states symptoms began while at work, no known trauma."></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">A</div>
+        <div class="step-body">
+          <div class="field">
+            <label>観察所見 <span class="ja">Assessment findings</span></label>
+            <div class="quick-row">
+              <button type="button" class="chip" data-fill="medAssessment" data-value="alert and oriented x4, ABCs intact">意識清明・ABC異常なし</button>
+            </div>
+            <textarea id="medAssessment" rows="2" placeholder="例: Vitals BP 128/82, HR 96, RR 18, SpO2 98% RA. Lungs clear bilaterally."></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">R</div>
+        <div class="step-body">
+          <div class="field">
+            <label>処置 <span class="ja">Treatment rendered</span></label>
+            <div class="quick-row">
+              <button type="button" class="chip" data-fill="medTreatment" data-value="Crew assisted EMT with patient assessment and loaded patient to the ambulance">観察・処置介助し救急車収容</button>
+            </div>
+            <textarea id="medTreatment" rows="2" placeholder="例: Oxygen administered via NC at 4LPM, patient placed on monitor."></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">T</div>
+        <div class="step-body">
+          <div class="field autocomplete-wrap">
+            <label>搬送先 <span class="ja">Transported to</span></label>
+            <input type="text" id="medTransport" placeholder="例: US Naval Hospital Okinawa" autocomplete="off"/>
+            <div class="suggest-box" id="medTransportSuggest"></div>
           </div>
         </div>
       </div>
@@ -389,7 +515,148 @@
     const h = String(now.getHours()).padStart(2,'0');
     const m = String(now.getMinutes()).padStart(2,'0');
     document.getElementById('incTime').value = `${h}:${m}`;
+
+    setupAutocomplete('units', 'unitsSuggest', 'units', { multi: true });
+    setupAutocomplete('dispatcher', 'dispatcherSuggest', 'dispatcher', { multi: false });
+    setupAutocomplete('base', 'baseSuggest', 'base', { multi: false });
+    setupAutocomplete('locationDetail', 'locationDetailSuggest', 'location', { multi: false });
+    setupAutocomplete('medTransport', 'medTransportSuggest', 'transport', { multi: false });
+    setupQuickTypeChips();
+    setupQuickFillChips();
   });
+
+  // ---- Frequency-based suggestions (learned per-browser via localStorage) ----
+  const SUGGEST_KEY = 'fireReportSuggestions';
+
+  // Shown by default before any usage history exists, so common values predict immediately.
+  function defaultSuggestionData() {
+    return {
+      units: { 'E-11': 1, 'L-1': 1 },
+      dispatcher: { 'Butler Fire': 1 },
+      base: { 'Camp Foster': 1 },
+      location: { 'Bldg#': 1, 'Room#': 1 },
+      transport: { 'USNH Okinawa': 1 }
+    };
+  }
+
+  function loadSuggestionData() {
+    const defaults = defaultSuggestionData();
+    try {
+      const raw = localStorage.getItem(SUGGEST_KEY);
+      if (!raw) return defaults;
+      const data = JSON.parse(raw) || {};
+      const pick = (cat) => (data[cat] && Object.keys(data[cat]).length) ? data[cat] : defaults[cat];
+      return { units: pick('units'), dispatcher: pick('dispatcher'), base: pick('base'), location: pick('location'), transport: pick('transport') };
+    } catch (e) { return defaults; }
+  }
+  function saveSuggestionData() {
+    try { localStorage.setItem(SUGGEST_KEY, JSON.stringify(suggestionData)); } catch (e) {}
+  }
+  let suggestionData = loadSuggestionData();
+  saveSuggestionData();
+
+  function recordUsage(category, value) {
+    if (!value) return;
+    suggestionData[category][value] = (suggestionData[category][value] || 0) + 1;
+    saveSuggestionData();
+  }
+
+  function getSuggestions(category, query) {
+    const q = (query || '').toLowerCase();
+    return Object.entries(suggestionData[category] || {})
+      .filter(([val]) => val.toLowerCase().includes(q))
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .slice(0, 8);
+  }
+
+  function setupAutocomplete(inputId, boxId, category, opts) {
+    const input = document.getElementById(inputId);
+    const box = document.getElementById(boxId);
+    const multi = !!(opts && opts.multi);
+
+    function currentToken() {
+      if (!multi) return input.value;
+      const parts = input.value.split(',');
+      return parts[parts.length - 1].trim();
+    }
+
+    function render() {
+      const list = getSuggestions(category, currentToken());
+      if (!list.length) { box.classList.remove('open'); box.innerHTML = ''; return; }
+      box.innerHTML = list.map(([val, freq]) =>
+        `<div class="suggest-item" data-val="${val.replace(/"/g,'&quot;')}"><span>${val}</span><span class="freq">${freq}回</span></div>`
+      ).join('');
+      box.classList.add('open');
+    }
+
+    function choose(val) {
+      if (multi) {
+        const parts = input.value.split(',').map(p => p.trim()).filter((p, i, arr) => !(i === arr.length - 1 && p === ''));
+        parts.pop();
+        parts.push(val);
+        input.value = parts.join(', ') + ', ';
+      } else {
+        input.value = val;
+      }
+      box.classList.remove('open');
+      input.focus();
+    }
+
+    input.addEventListener('focus', render);
+    input.addEventListener('input', render);
+    input.addEventListener('blur', () => setTimeout(() => box.classList.remove('open'), 150));
+    box.addEventListener('mousedown', (e) => {
+      const item = e.target.closest('.suggest-item');
+      if (item) { e.preventDefault(); choose(item.dataset.val); }
+      else { box.classList.remove('open'); }
+    });
+  }
+
+  // ---- Incident Type quick-select chips ----
+  function setupQuickTypeChips() {
+    const select = document.getElementById('incidentType');
+    const custom = document.getElementById('incidentTypeCustom');
+    const chips = document.querySelectorAll('.chip[data-type]');
+
+    function clearActive() { chips.forEach(b => b.classList.remove('active')); }
+
+    chips.forEach(btn => {
+      btn.addEventListener('click', () => {
+        clearActive();
+        btn.classList.add('active');
+        const val = btn.dataset.type;
+        const hasOption = Array.from(select.options).some(o => o.value === val);
+        if (hasOption) { select.value = val; custom.value = ''; }
+        else { select.value = ''; custom.value = val; }
+        updateFlowVisibility();
+      });
+    });
+    select.addEventListener('change', () => { clearActive(); updateFlowVisibility(); });
+    custom.addEventListener('input', () => { clearActive(); updateFlowVisibility(); });
+    updateFlowVisibility();
+  }
+
+  // Medical Emergency incidents use the ACHART narrative flow instead of the fire-incident steps.
+  function isMedicalIncident() {
+    const val = (v('incidentTypeCustom') || v('incidentType') || '').toUpperCase();
+    return val.includes('MEDICAL');
+  }
+  function updateFlowVisibility() {
+    const medical = isMedicalIncident();
+    document.getElementById('fireFlow').style.display = medical ? 'none' : '';
+    document.getElementById('medicalFlow').style.display = medical ? '' : 'none';
+  }
+
+  // One-click insert of common, pre-vetted English phrasing (e.g. Assessment/Treatment boilerplate)
+  // so common entries don't depend on machine-translation quality.
+  function setupQuickFillChips() {
+    document.querySelectorAll('.chip[data-fill]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const target = document.getElementById(btn.dataset.fill);
+        if (target) target.value = btn.dataset.value;
+      });
+    });
+  }
 
   function actionOptions() {
     return `<option value="">選択...</option>
@@ -403,7 +670,8 @@
       <option value="Overhaul conducted">オーバーホール実施</option>
       <option value="Patient treated and transported">傷病者処置・搬送</option>
       <option value="No action required">措置不要</option>
-      <option value="Turned over to civilian authorities">民間当局へ引き渡し</option>`;
+      <option value="Turned over to civilian authorities">民間当局へ引き渡し</option>
+      <option value="Maintenance request submitted">メンテナンス要請</option>`;
   }
 
   function addAction() {
@@ -424,11 +692,40 @@
     return `${pad2(d)}/${pad2(m)}/${y.slice(2)}`;
   }
 
-  function generateReport() {
+  function cap(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
+  function lowerFirst(s) { return s ? s.charAt(0).toLowerCase() + s.slice(1) : s; }
+  function endSentence(s) { if (!s) return s; const t = s.trim(); return /[.!?]$/.test(t) ? t : t + '.'; }
+  // "FIRE ALARM" -> "Fire alarm" (first letter capitalized, rest lowercased — not per-word title case)
+  function sentenceCase(s) { return s ? cap(s.toLowerCase()) : s; }
+  // ['E-11'] -> "E-11"; ['E-11','L-1'] -> "E-11 and L-1"; ['E-11','Med-1','Sqd-1'] -> "E-11, Med-1 and Sqd-1"
+  function joinList(arr) {
+    if (arr.length === 0) return '';
+    if (arr.length === 1) return arr[0];
+    if (arr.length === 2) return `${arr[0]} and ${arr[1]}`;
+    return `${arr.slice(0, -1).join(', ')} and ${arr[arr.length - 1]}`;
+  }
+
+  // ---- Best-effort JA -> EN machine translation for free-text medical narrative fields ----
+  // Uses the free, keyless MyMemory API. Not guaranteed accurate — review before official use.
+  const JP_REGEX = /[぀-ヿ㐀-䶿一-鿿ｦ-ﾟ]/;
+
+  async function translateToEnglish(text) {
+    if (!text || !JP_REGEX.test(text)) return text;
+    try {
+      const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=ja|en`);
+      if (!res.ok) return text;
+      const data = await res.json();
+      const translated = data && data.responseData && data.responseData.translatedText;
+      return translated ? translated : text;
+    } catch (e) {
+      return text;
+    }
+  }
+
+  async function generateReport() {
     const units      = v('units')      || '???';
     const dispatcher = v('dispatcher') || 'Fire Dispatch';
     const incType    = v('incidentTypeCustom') || v('incidentType') || 'INCIDENT';
-    const building   = v('building');
     const timeStr    = v('incTime');
     const tz         = v('timezone') || 'JST';
     const dateStr    = v('incDate');
@@ -442,21 +739,78 @@
     const actExtra   = v('actionsExtra');
     const outcome    = v('outcome') || 'returned to station';
     const freeNarr   = v('freeNarrative');
+    const medical    = isMedicalIncident();
+    const medAge      = v('medAge');
+    const medGender   = v('medGender');
+    let medArrived    = v('medArrived');
+    let medChief       = v('medChief');
+    let medHistory     = v('medHistory');
+    let medAssessment  = v('medAssessment');
+    let medTreatment   = v('medTreatment');
+    let medTransport   = v('medTransport');
 
     const actions = [];
     document.querySelectorAll('.action-select').forEach(s => { if(s.value) actions.push(s.value); });
 
-    const whereStr = [base, building].filter(Boolean).join(' ');
+    v('units').split(',').map(u=>u.trim()).filter(Boolean).forEach(u => recordUsage('units', u));
+    const rawDispatcher = v('dispatcher');
+    if (rawDispatcher) recordUsage('dispatcher', rawDispatcher);
+    if (base) recordUsage('base', base);
+    if (locDetail) recordUsage('location', locDetail);
+    if (medTransport) recordUsage('transport', medTransport);
+
+    const whereStr = [base, locDetail].filter(Boolean).join(' ');
     const milTime  = timeStr ? timeStr.replace(':','') : '????';
     const whenStr  = `${milTime}(${tz}), ${formatDate(dateStr)}`;
-    const unitList = units.split(',').map(u=>u.trim()).join(' and ');
+    const unitTokens   = units.split(',').map(u=>u.trim()).filter(Boolean);
+    const unitsDisplay = unitTokens.length ? unitTokens.join(', ') : units;
+    const unitList      = unitTokens.length ? joinList(unitTokens) : units;
+    const incTypeDisplay = sentenceCase(incType);
+
+    const btn = document.getElementById('generateBtn');
+    const btnOriginalText = btn.textContent;
+    if (medical && !freeNarr) {
+      btn.disabled = true;
+      btn.textContent = '🌐 翻訳中 / Translating...';
+      try {
+        [medArrived, medChief, medHistory, medAssessment, medTreatment, medTransport] = await Promise.all(
+          [medArrived, medChief, medHistory, medAssessment, medTreatment, medTransport].map(translateToEnglish)
+        );
+      } finally {
+        btn.disabled = false;
+        btn.textContent = btnOriginalText;
+      }
+    }
 
     let narrative = '';
     if (freeNarr) {
       narrative = freeNarr;
+    } else if (medical) {
+      // ACHART flow: Arrived + Chief complaint combined into one opening line,
+      // then History / Assessment / Rx (treatment) / Transported each on their own line.
+      const medWhereStr = (base && locDetail) ? `${locDetail} on ${base}` : whereStr;
+      const intro = `${unitList} dispatched by ${dispatcher} for a ${incTypeDisplay} at ${medWhereStr || 'the reported location'}.`;
+
+      const ageGenderBits = [];
+      if (medAge)    ageGenderBits.push(`${medAge}-year-old`);
+      if (medGender) ageGenderBits.push(medGender);
+      const ageGenderStr = ageGenderBits.join(' ');
+      const arrivedDesc = [ageGenderStr, medArrived].filter(Boolean).join(' ');
+
+      const openBits = [];
+      if (arrivedDesc) openBits.push(`arrived on scene to find ${arrivedDesc}`);
+      if (medChief)    openBits.push(`c/c of ${medChief}`);
+      const s1 = openBits.length ? endSentence(cap(openBits.join(', '))) : '';
+
+      const s2 = medHistory ? endSentence(`Patient ${lowerFirst(medHistory)}`) : '';
+      const s3 = medAssessment ? endSentence(`Patient was ${medAssessment}`) : '';
+      const s4 = medTreatment ? endSentence(cap(medTreatment)) : '';
+      const s5 = medTransport ? `Patient was transported to ${medTransport}.` : '';
+
+      narrative = [intro, s1, s2, s3, s4, s5].filter(Boolean).join('\n');
     } else {
       const parts = [];
-      parts.push(`${unitList} dispatched by ${dispatcher} for a ${incType} at ${whereStr || 'the reported location'}.`);
+      parts.push(`${unitList} dispatched by ${dispatcher} for a ${incTypeDisplay} at ${whereStr || 'the reported location'}.`);
 
       if (arrCond) {
         let s = `Arrived on scene to find ${arrCond}`;
@@ -483,13 +837,13 @@
       }
 
       if (actExtra) parts.push(actExtra);
-      narrative = parts.join(' ');
+      narrative = parts.join('\n');
     }
 
     const report =
 `5W
-WHO:   ${units}
-WHAT:  ${incType}
+WHO:   ${unitsDisplay}
+WHAT:  ${incTypeDisplay}
 WHEN:  ${whenStr}
 WHERE: ${whereStr || 'N/A'}
 WHY:
